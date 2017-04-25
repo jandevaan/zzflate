@@ -193,13 +193,13 @@ void buildLengthLookup()
 }
 
 
-void writeRun(outputbitstream& stream, std::vector<unsigned>& codes, std::vector<char>& lengths, int last_value, int& repeat_count)
+void writeRun(outputbitstream& stream, std::vector<code>& codes, int last_value, int& repeat_count)
 {
 	if (repeat_count < 3)
 	{
 		for (int i = 0; i < repeat_count; ++i)
 		{
-			stream.AppendToBitStream(codes[last_value], lengths[last_value]);
+			stream.AppendToBitStream(codes[last_value]);
 		}
 		repeat_count = 0;
 		return;
@@ -211,7 +211,7 @@ void writeRun(outputbitstream& stream, std::vector<unsigned>& codes, std::vector
 		auto code = lengthRecord.code;
 
 		// length
-		stream.AppendToBitStream(codes[code], lengths[code]);
+		stream.AppendToBitStream(codes[code]);
 		stream.AppendToBitStream(lengthRecord.extraBits, lengthRecord.extraBitLength);
 		
 		// distance
@@ -228,9 +228,8 @@ void WriteBlock(const unsigned char* source, size_t sourceLen, outputbitstream& 
 {
 	stream.AppendToBitStream(final, 1); // final
 	stream.AppendToBitStream(0b01, 2); // fixed huffman table		
-
-	auto lengths = huffman::defaultTableLengths();
-	auto codes = huffman::generate(lengths);
+	 
+	auto codes = huffman::generate(huffman::defaultTableLengths());
 
 	int lastValue = -1;
 	int repeatCount = 0;
@@ -244,13 +243,13 @@ void WriteBlock(const unsigned char* source, size_t sourceLen, outputbitstream& 
 		}		
 		if (repeatCount != 0)
 		{
-			writeRun(stream, codes, lengths, lastValue, repeatCount);
+			writeRun(stream, codes, lastValue, repeatCount);
 		}
-		stream.AppendToBitStream(codes[value], lengths[value]);
+		stream.AppendToBitStream(codes[value]);
 		lastValue = value;
 	}
-	writeRun(stream, codes, lengths, lastValue, repeatCount);
-	stream.AppendToBitStream(codes[256], lengths[256]);
+	writeRun(stream, codes, lastValue, repeatCount);
+	stream.AppendToBitStream(codes[256]);
 
 	uint32_t adler = adler32x(source, sourceLen);
 	stream.Flush();
@@ -352,13 +351,13 @@ TEST(Zlib, GenerateHuffman)
 	auto lengths = huffman::defaultTableLengths();
 	auto result = huffman::generate(lengths);
 
-	EXPECT_EQ(result[0  ], huffman::reverse(0b00110000, lengths[0]));
-	EXPECT_EQ(result[143], huffman::reverse(0b10111111, lengths[143]));
-	EXPECT_EQ(result[144], huffman::reverse(0b110010000, lengths[144]));
-	EXPECT_EQ(result[255], huffman::reverse(0b111111111, lengths[255]));
-	EXPECT_EQ(result[256], huffman::reverse(0, lengths[256]));
-	EXPECT_EQ(result[279], huffman::reverse(0b0010111, lengths[279]));
-	EXPECT_EQ(result[280], huffman::reverse(0b11000000, lengths[280]));
-	EXPECT_EQ(result[287], huffman::reverse(0b11000111, lengths[287]));
+	EXPECT_EQ(result[0  ].bits, huffman::reverse(0b00110000, lengths[0]));
+	EXPECT_EQ(result[143].bits, huffman::reverse(0b10111111, lengths[143]));
+	EXPECT_EQ(result[144].bits, huffman::reverse(0b110010000, lengths[144]));
+	EXPECT_EQ(result[255].bits, huffman::reverse(0b111111111, lengths[255]));
+	EXPECT_EQ(result[256].bits, huffman::reverse(0, lengths[256]));
+	EXPECT_EQ(result[279].bits, huffman::reverse(0b0010111, lengths[279]));
+	EXPECT_EQ(result[280].bits, huffman::reverse(0b11000000, lengths[280]));
+	EXPECT_EQ(result[287].bits, huffman::reverse(0b11000111, lengths[287]));
 	//EXPECT_EQ(result[0], 0);
 }

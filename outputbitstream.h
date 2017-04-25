@@ -2,12 +2,16 @@
 #define outputbitstream_
 
 #include <cstdint>
-#include <cstring>
 #include <cassert>
+#include <string>
 
 uint32_t adler32x(const unsigned char *data, size_t len);
 
-
+struct code
+{
+	int length;
+	int bits;
+};
 
 class outputbitstream
 { 
@@ -26,9 +30,15 @@ public:
 		_stream = stream;
 	}
 
+	void AppendToBitStream(code code)
+	{
+		AppendToBitStream(code.bits, code.length);
+	}
+
+
 	void AppendToBitStream(int32_t bits, int32_t bitCount)
 	{
-		if((~0 << bitCount) & bits != 0)
+		if(((~0 << bitCount) & bits) != 0)
 		{
 			assert(false);
 		}

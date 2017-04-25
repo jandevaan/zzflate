@@ -67,7 +67,8 @@ unsigned huffman::reverse(unsigned value, int len)
 	return ::reverse(value) >> 32 - len;
 }
 
-std::vector<unsigned> huffman::generate(std::vector<char>& lengths)
+
+std::vector<code> huffman::generate(std::vector<char>& lengths)
 {
 	
 	int bl_count[MAX_BITS] = {};
@@ -78,24 +79,23 @@ std::vector<unsigned> huffman::generate(std::vector<char>& lengths)
 	
 	unsigned int next_code[MAX_BITS] = { };
 	
-	int code = 0;
+	int bits = 0;
 	bl_count[0] = 0;
-	for (int bits = 1; bits < MAX_BITS; ++bits)
+	for (int n = 1; n < MAX_BITS; ++n)
 	{
-		code = (code + bl_count[bits - 1]) << 1;
-		next_code[bits] = code;
+		bits = (bits + bl_count[n - 1]) << 1;
+		next_code[n] = bits;
 	}
 
-	std::vector<unsigned int> codes;
+	std::vector<code> codes(lengths.size(), {});
 	for (int n = 0; n < lengths.size(); n++)
 	{
 		int len = lengths[n];
-		 
-		codes.push_back(reverse(next_code[len], len));
-		if (len != 0)
-		{
-			next_code[len]++;
-		}		
+		if (len <= 0)
+			continue;
+
+		codes[n] = { len, (int)reverse(next_code[len], len) };
+		next_code[len]++;
 	}
 
 	return codes;
