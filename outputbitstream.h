@@ -61,7 +61,7 @@ public:
 
 	bool writeushort(uint16_t value)
 	{
-		*_stream++ = value;
+		*_stream++ = value & 0xFF;
 		*_stream++ = value >> 8;
 		return true;
 	}
@@ -81,7 +81,7 @@ public:
 		return _stream - _start;
 	}
 
-	uint32_t writeUncompressedBlock(const unsigned char* source, uint16_t sourceLen, int final)
+	void writeUncompressedBlock(const unsigned char* source, uint16_t sourceLen, int final)
 	{
 		AppendToBitStream(final, 1);  // final
 		AppendToBitStream(0, 2); // uncompressed
@@ -95,9 +95,7 @@ public:
 
 		uint32_t adler = adler32x(source, sourceLen);
 
-		writeuint32_bigendian(adler);
-
-		return byteswritten();
+		writeuint32_bigendian(adler); 
 	}
 
  

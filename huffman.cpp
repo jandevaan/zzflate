@@ -64,7 +64,7 @@ const int MAX_BITS = 30;
 
 unsigned huffman::reverse(unsigned value, int len)
 {
-	return ::reverse(value) >> 32 - len;
+	return ::reverse(value) >> (32 - len);
 }
 
 

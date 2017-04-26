@@ -128,7 +128,7 @@ struct distanceRecord
 		int distanceStart;
 };
 
-distanceRecord distanceTable[30]{
+distanceRecord distanceTable[31]{
 	0,0,1,
 	1,0,2,
 	2,0,3, 
@@ -158,7 +158,8 @@ distanceRecord distanceTable[30]{
 	26,12,8193,
 	27,12, 12289,
 	28,13, 16385,
-	29,13, 24577
+	29,13, 24577,
+	30,0, 32768,
 };
 
 struct lengthRecord
@@ -193,6 +194,39 @@ void buildLengthLookup()
 }
 
 
+void WriteDistance(outputbitstream& stream, int offset)
+{
+	for(int n = 1; n < std::size(distanceTable); ++n)
+	{
+		if (offset < distanceTable[n + 1].distanceStart )
+		{
+			auto bucket = distanceTable[n - 1];
+			stream.AppendToBitStream(bucket.code, 5); // fixed 5 bit table
+			stream.AppendToBitStream(bucket.distanceStart - offset, bucket.bits);
+			return;
+		}
+	}	
+
+	throw std::exception("Distance too far away");
+}
+
+void WriteLength(outputbitstream& stream, std::vector<code>& codes, int runLength)
+{
+	auto lengthRecord = lengthTable[runLength];
+	auto code = lengthRecord.code;
+
+	stream.AppendToBitStream(codes[code]);
+	stream.AppendToBitStream(lengthRecord.extraBits, lengthRecord.extraBitLength);
+}
+
+const int ChooseRunCount(int repeat_count)
+{
+	if (repeat_count <= 258)
+		return repeat_count;
+
+	return std::min(repeat_count - 3, 258);
+}
+
 void writeRun(outputbitstream& stream, std::vector<code>& codes, int last_value, int& repeat_count)
 {
 	if (repeat_count < 3)
@@ -206,20 +240,11 @@ void writeRun(outputbitstream& stream, std::vector<code>& codes, int last_value,
 	}
 	while (repeat_count != 0)
 	{
-		int runLength = std::min(repeat_count, 258);
-		auto lengthRecord = lengthTable[runLength];
-		auto code = lengthRecord.code;
-
-		// length
-		stream.AppendToBitStream(codes[code]);
-		stream.AppendToBitStream(lengthRecord.extraBits, lengthRecord.extraBitLength);
-		
-		// distance
-		stream.AppendToBitStream(0, 5); // fixed 5 bit table, no extras
-	
+		int runLength = ChooseRunCount(repeat_count);
+		WriteLength(stream, codes, runLength);		
+		WriteDistance(stream, 1);	
 		repeat_count -= runLength;
 	}
-
 
 	repeat_count = 0;
 }
@@ -228,8 +253,9 @@ void WriteBlock(const unsigned char* source, size_t sourceLen, outputbitstream& 
 {
 	stream.AppendToBitStream(final, 1); // final
 	stream.AppendToBitStream(0b01, 2); // fixed huffman table		
-	 
-	auto codes = huffman::generate(huffman::defaultTableLengths());
+
+	auto bytes = huffman::defaultTableLengths();
+	auto codes = huffman::generate(bytes);
 
 	int lastValue = -1;
 	int repeatCount = 0;
@@ -258,29 +284,25 @@ void WriteBlock(const unsigned char* source, size_t sourceLen, outputbitstream& 
 
 void compressNew(unsigned char *dest, unsigned long *destLen, const unsigned char *source, size_t sourceLen, int level)
 {
-	auto h = getHeader();
-	auto length = *destLen;
-
-	int offset = 0;
-
 	outputbitstream stream(dest);
 
-	stream.writebyte(h.CMF);
-	stream.writebyte(h.FLG);
+	auto header = getHeader();	
+	stream.writebyte(header.CMF);
+	stream.writebyte(header.FLG);
 
 	if (level == 0)	
 	{		
-		stream.writeUncompressedBlock(source, (uint16_t)sourceLen, 1);
-		*destLen = (int)stream.byteswritten();
-		return;
+		stream.writeUncompressedBlock(source, (uint16_t)sourceLen, 1);		
 	}
-	if (level != 1)
+	else if (level == 1)
+	{
+		WriteBlock(source, sourceLen, stream, 1);				
+	}
+	else
 	{
 		*destLen = -1;
-		return;
 	}
 
-	WriteBlock(source, sourceLen, stream, 1);
 	*destLen = (int)stream.byteswritten();
 }
 
@@ -319,7 +341,7 @@ TEST(Zlib, SimpleUncompressed)
 {
 	auto bufferUncompressed = std::vector<unsigned char>(20, 3);
 	
-	for(int i = 0; i < 333; ++i)
+	for(int i = 0; i < 3333; ++i)
 	{
 		bufferUncompressed.push_back(i * 39034621);
 	}
@@ -334,7 +356,7 @@ TEST(Zlib, SimpleHuffman)
 {
 	auto bufferUncompressed = std::vector<unsigned char>(200, 3);
 	
-	for (int i = 0; i < 323; ++i)
+	for (int i = 0; i < 32323; ++i)
 	{
 		bufferUncompressed.push_back(i );
 	}
