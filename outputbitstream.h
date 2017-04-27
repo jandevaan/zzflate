@@ -59,15 +59,17 @@ public:
 		AppendToBitStream(0, 8 - _usedBitCount % 8);		
 	}
 
-	bool writeushort(uint16_t value)
+	bool WriteU16(uint16_t value)
 	{
+		assert(_usedBitCount == 0);
 		*_stream++ = value & 0xFF;
 		*_stream++ = value >> 8;
 		return true;
 	}
 
-	void writeuint32_bigendian(uint32_t value)
+	void WriteBigEndianU32(uint32_t value)
 	{
+		assert(_usedBitCount == 0);
 		*_stream++ = value >> 24;
 		*_stream++ = value >> 16;
 		*_stream++ = value >> 8;
@@ -78,24 +80,8 @@ public:
 
 	long long byteswritten() const
 	{
+		assert(_usedBitCount == 0);
 		return _stream - _start;
-	}
-
-	void writeUncompressedBlock(const unsigned char* source, uint16_t sourceLen, int final)
-	{
-		AppendToBitStream(final, 1);  // final
-		AppendToBitStream(0, 2); // uncompressed
-		Flush();
-		
-		writeushort(sourceLen);
-		writeushort(~sourceLen);
-
-		memcpy(_stream, source, sourceLen);
-		_stream += sourceLen;
-
-		uint32_t adler = adler32x(source, sourceLen);
-
-		writeuint32_bigendian(adler); 
 	}
 
  
@@ -105,6 +91,7 @@ public:
 	
 	uint32_t _bitBuffer = 0;
 	int _usedBitCount  = 0;
+	
 };
 
 #endif

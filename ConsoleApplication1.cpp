@@ -227,83 +227,148 @@ const int ChooseRunCount(int repeat_count)
 	return std::min(repeat_count - 3, 258);
 }
 
-void writeRun(outputbitstream& stream, std::vector<code>& codes, int last_value, int& repeat_count)
+enum CurrentBlockType
 {
-	if (repeat_count < 3)
+	Uncompressed = 0b00,
+	FixedHuffman = 0b01,
+	UserDefinedHuffman	
+};
+
+struct EncoderState
+{
+	EncoderState(int level, unsigned char* outputBuffer)
+		: stream(outputBuffer),
+		_level(level)
 	{
-		for (int i = 0; i < repeat_count; ++i)
-		{
-			stream.AppendToBitStream(codes[last_value]);
-		}
-		repeat_count = 0;
-		return;
-	}
-	while (repeat_count != 0)
-	{
-		int runLength = ChooseRunCount(repeat_count);
-		WriteLength(stream, codes, runLength);		
-		WriteDistance(stream, 1);	
-		repeat_count -= runLength;
+		
 	}
 
-	repeat_count = 0;
-}
-
-void WriteBlock(const unsigned char* source, size_t sourceLen, outputbitstream& stream, int final)
-{
-	stream.AppendToBitStream(final, 1); // final
-	stream.AppendToBitStream(0b01, 2); // fixed huffman table		
-
-	auto bytes = huffman::defaultTableLengths();
-	auto codes = huffman::generate(bytes);
-
-	int lastValue = -1;
-	int repeatCount = 0;
-	for(int i = 0; i < sourceLen; ++i)
+	
+	void StartBlock(CurrentBlockType type, int final)
 	{
-		auto value = source[i];
-		if (lastValue == value)
+		stream.AppendToBitStream(final, 1); // final
+		stream.AppendToBitStream(type, 2); // fixed huffman table		
+
+		_type = type;
+		if (_type == FixedHuffman)
 		{
-			repeatCount++;
-			continue;
+			codes = huffman::generate(huffman::defaultTableLengths());
 		}		
-		if (repeatCount != 0)
-		{
-			writeRun(stream, codes, lastValue, repeatCount);
-		}
-		stream.AppendToBitStream(codes[value]);
-		lastValue = value;
 	}
-	writeRun(stream, codes, lastValue, repeatCount);
-	stream.AppendToBitStream(codes[256]);
 
-	uint32_t adler = adler32x(source, sourceLen);
-	stream.Flush();
-	stream.writeuint32_bigendian(adler);
+	void WriteBlock(const unsigned char* source, size_t sourceLen, int final)
+	{
+		StartBlock(FixedHuffman, final);
+
+		int lastValue = -1;
+		int repeatCount = 0;
+		for (int i = 0; i < sourceLen; ++i)
+		{
+			auto value = source[i];
+			if (lastValue == value)
+			{
+				repeatCount++;
+				continue;
+			}
+			if (repeatCount != 0)
+			{
+				writeRun(lastValue, repeatCount);
+			}
+			stream.AppendToBitStream(codes[value]);
+			lastValue = value;
+		}
+		writeRun(lastValue, repeatCount);
+		
+	}
+
+	void writeRun(int last_value, int& repeat_count)
+	{
+		
+		if (repeat_count < 3)
+		{
+			for (int i = 0; i < repeat_count; ++i)
+			{
+				stream.AppendToBitStream(codes[last_value]);
+			}
+			repeat_count = 0;
+			return;
+		}
+		while (repeat_count != 0)
+		{
+			int runLength = ChooseRunCount(repeat_count);
+			WriteLength(stream, codes, runLength);
+			WriteDistance(stream, 1);
+			repeat_count -= runLength;
+		}
+
+		repeat_count = 0;
+	}
+
+
+	void writeUncompressedBlock(const unsigned char* source, uint16_t sourceLen, int final)
+	{
+		StartBlock(Uncompressed, final);
+		stream.Flush();
+
+		stream.WriteU16(sourceLen);
+		stream.WriteU16(~sourceLen);
+
+		memcpy(stream._stream, source, sourceLen);
+		stream._stream += sourceLen;
+
+	}
+
+	void EndBlock()
+	{
+		if (_type != Uncompressed)
+		{
+			stream.AppendToBitStream(codes[256]);
+		}
+	}
+
+	CurrentBlockType _type;
+	outputbitstream stream;
+	std::vector<code> codes;
+	int _level;
+};
+
+
+void WriteDeflateBlock(EncoderState& state, const unsigned char* source, size_t sourceLen)
+{
+	if (state._level == 0)
+	{		
+		state.writeUncompressedBlock(source, (uint16_t)sourceLen, 1);
+	}
+	else if (state._level == 1)
+	{
+		state.WriteBlock(source, sourceLen, 1);
+	}
+	
+	state.EndBlock();
 }
 
-void compressNew(unsigned char *dest, unsigned long *destLen, const unsigned char *source, size_t sourceLen, int level)
+void EncodeZlib(unsigned char *dest, unsigned long *destLen, const unsigned char *source, size_t sourceLen, int level)
 {
-	outputbitstream stream(dest);
-
-	auto header = getHeader();	
-	stream.writebyte(header.CMF);
-	stream.writebyte(header.FLG);
-
-	if (level == 0)	
-	{		
-		stream.writeUncompressedBlock(source, (uint16_t)sourceLen, 1);		
-	}
-	else if (level == 1)
-	{
-		WriteBlock(source, sourceLen, stream, 1);				
-	}
-	else
+	if (level < 0 || level > 1)
 	{
 		*destLen = -1;
+		return;
 	}
 
-	*destLen = (int)stream.byteswritten();
+	EncoderState state(level, dest);
+	
+	auto header = getHeader();	
+	state.stream.writebyte(header.CMF);
+	state.stream.writebyte(header.FLG);
+	  
+	WriteDeflateBlock(state, source, sourceLen);
+
+	// end of zlib stream (not block!)
+	auto adler = adler32x(source, sourceLen);
+	state.stream.Flush();
+	state.stream.WriteBigEndianU32(adler);
+
+	*destLen = (int)state.stream.byteswritten();
 }
 
 int testroundtrip(std::vector<unsigned char>& bufferUncompressed, int compression)
@@ -313,7 +378,7 @@ int testroundtrip(std::vector<unsigned char>& bufferUncompressed, int compressio
 
 	uLongf comp_len = (uLongf)bufferCompressed.size();
  
-	compressNew(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
+	EncodeZlib(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
 	 
 	std::vector<unsigned char> decompressed(testSize);
 	auto unc_len = decompressed.size();
@@ -362,24 +427,22 @@ TEST(Zlib, SimpleHuffman)
 	}
 
 	testroundtrip(bufferUncompressed, 1);
-
 }
 
 
 
 
 TEST(Zlib, GenerateHuffman)
-{ 
-	auto lengths = huffman::defaultTableLengths();
-	auto result = huffman::generate(lengths);
+{
+	auto result = huffman::generate(huffman::defaultTableLengths());
 
-	EXPECT_EQ(result[0  ].bits, huffman::reverse(0b00110000, lengths[0]));
-	EXPECT_EQ(result[143].bits, huffman::reverse(0b10111111, lengths[143]));
-	EXPECT_EQ(result[144].bits, huffman::reverse(0b110010000, lengths[144]));
-	EXPECT_EQ(result[255].bits, huffman::reverse(0b111111111, lengths[255]));
-	EXPECT_EQ(result[256].bits, huffman::reverse(0, lengths[256]));
-	EXPECT_EQ(result[279].bits, huffman::reverse(0b0010111, lengths[279]));
-	EXPECT_EQ(result[280].bits, huffman::reverse(0b11000000, lengths[280]));
-	EXPECT_EQ(result[287].bits, huffman::reverse(0b11000111, lengths[287]));
+	EXPECT_EQ(result[0  ].bits, huffman::reverse(0b00110000, huffman::defaultTableLengths()[0]));
+	EXPECT_EQ(result[143].bits, huffman::reverse(0b10111111, huffman::defaultTableLengths()[143]));
+	EXPECT_EQ(result[144].bits, huffman::reverse(0b110010000, huffman::defaultTableLengths()[144]));
+	EXPECT_EQ(result[255].bits, huffman::reverse(0b111111111, huffman::defaultTableLengths()[255]));
+	EXPECT_EQ(result[256].bits, huffman::reverse(0, huffman::defaultTableLengths()[256]));
+	EXPECT_EQ(result[279].bits, huffman::reverse(0b0010111, huffman::defaultTableLengths()[279]));
+	EXPECT_EQ(result[280].bits, huffman::reverse(0b11000000, huffman::defaultTableLengths()[280]));
+	EXPECT_EQ(result[287].bits, huffman::reverse(0b11000111, huffman::defaultTableLengths()[287]));
 	//EXPECT_EQ(result[0], 0);
 }
