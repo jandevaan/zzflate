@@ -9,6 +9,25 @@
 #include <gtest/gtest.h>
 #include "outputbitstream.h"
 #include "huffman.h"
+#include <fstream>
+
+
+std::vector<unsigned char> readFile(std::string name)
+{ 
+	std::ifstream file;
+	file.exceptions( std::ifstream::badbit | std::ifstream::failbit | std::ifstream::eofbit);	
+	file.open(name.c_str(), std::ifstream::in | std::ifstream::binary);
+	file.seekg(0, std::ios::end);
+	size_t length = file.tellg();
+	file.seekg(0, std::ios::beg);
+
+	auto vec = std::vector<unsigned char>(length);
+	
+	file.read((char*)&vec.front(), length);
+
+	return vec;
+}
+
 
 int uncompress(unsigned char *dest, size_t *destLen, const unsigned char *source, size_t sourceLen) {
 	z_stream stream = {};
@@ -280,10 +299,172 @@ struct EncoderState
 		writeRun(lastValue, repeatCount);
 		
 	}
+	struct record
+	{
+		int frequency;
+		int id;
+	};
+	struct compressionRecord
+	{
+		unsigned int literals;
+		unsigned short backoffset;
+		unsigned short length;
+	};
+	 
+
+	struct treeItem
+	{
+		int frequency;
+		int left;
+		int right;
+		int bits;
+	};
+
+
+	std::vector<char> calcLengths(std::vector<record>& freqs)
+	{
+		std::vector<char> lengths;
+		long long symbolcount = 0;
+		for (int i = 0; i <= 285; ++i)
+		{
+			symbolcount += freqs[i].frequency;
+			freqs[i].id = i;
+		}
+		freqs[256].frequency++;
+		
+		// cheap hack to prevent excessively long codewords.
+		int limit = symbolcount / (1 << 15);
+
+		std::vector<treeItem> tree;
+		for (auto& record : freqs)
+		{ 
+			record.frequency = std::max(limit, record.frequency);
+			tree.push_back({ record.frequency, record.id, -1 });
+		}
+
+		std::sort(freqs.begin(), freqs.end(),
+		          [](auto a, auto b) -> bool { return a.frequency > b.frequency; });
+
+		auto nonzero = std::count_if(freqs.begin(), freqs.end(), [](record r) -> bool { return r.frequency != 0; });
+		
+		freqs.resize(nonzero);
+
+		while (freqs.size() >= 2)
+		{
+			auto a = freqs[freqs.size() - 2];
+			auto b = freqs[freqs.size() - 1];
+			freqs.resize(freqs.size() - 2);
+
+			auto sumfreq = a.frequency + b.frequency;
+			tree.push_back({ sumfreq, a.id, b.id });
+
+			record val = { sumfreq, (int)(tree.size() - 1) };
+
+			auto index = std::upper_bound(freqs.begin(), freqs.end(), val, [](auto a, auto b) -> bool { return a.frequency > b.frequency; });
+
+			freqs.insert(index, val);			
+		}
+
+		lengths = std::vector<char>(286);
+
+		for(int i = tree.size() - 1; i > 285; --i)
+		{
+			auto item = tree[i];
+			tree[item.left].bits = item.bits + 1;
+			tree[item.right].bits = item.bits + 1;
+		}
+
+		for (int i = 0; i < lengths.size(); ++i)
+		{
+			lengths[i] = tree[i].bits;
+		}
+
+		return lengths;
+	}
+	int FindBackRef(const unsigned char* source, int index, int end, int* offset)
+	{
+		if (index == 0)
+			return 0;
+
+		int max = std::min(end, index + 255);
+
+		auto val = source[index -1];
+		int i = index;
+		for (; i < max; ++i)
+		{
+			if (source[i] != val)
+				break;
+		}
+		i -= index;
+		*offset = 1;
+	  
+		if (i >= 4) 
+			return i;
+		else return 0;
+	}
+
+
+	void CheckLength(std::vector<compressionRecord> comprecords)
+	{
+		int count = 0;
+		for (auto rec : comprecords)
+		{
+			count += rec.literals + rec.length;
+		}
+	}
+
+	void WriteRecords(const unsigned char* source, const std::vector<compressionRecord>& vector, bool final)
+	{
+		StartBlock(FixedHuffman, final);
+		 
+		int offset = 0;
+		for (auto r : vector)
+		{
+			for (int n = 0; n < r.literals; ++n)
+			{
+				auto value = source[offset + n];
+				stream.AppendToBitStream(codes[value]);
+			}
+			
+			if (r.length != 0)
+			{
+				WriteLength(stream, codes, r.length);
+				WriteDistance(stream, r.backoffset);
+			}
+			
+			offset += r.length + r.literals;
+		}
+	}
+
+
+	void WriteBlockV(const unsigned char* source, size_t sourceLen, int final)
+	{
+		auto comprecords = std::vector<compressionRecord>();
+		
+		unsigned int literals = 0;
+		for (int i = 0; i < sourceLen; ++i)
+		{
+			int offset;
+			auto matchLength = FindBackRef(source, i, sourceLen, &offset);
+			if (matchLength == 0)
+			{
+				literals++;
+				continue;
+			}
+			  
+			comprecords.push_back({ literals, (unsigned short)offset, (unsigned short)matchLength });
+			i += matchLength - 1;
+			literals = 0;
+		}
+
+		comprecords.push_back({ literals, 0,0});		
+		 	
+
+		WriteRecords(source, comprecords, final);
+	}
 
 	void writeRun(int last_value, int& repeat_count)
 	{
-		
 		if (repeat_count < 3)
 		{
 			for (int i = 0; i < repeat_count; ++i)
@@ -341,7 +522,7 @@ void WriteDeflateBlock(EncoderState& state, const unsigned char* source, size_t 
 	}
 	else if (state._level == 1)
 	{
-		state.WriteBlock(source, sourceLen, 1);
+		state.WriteBlockV(source, sourceLen, 1); 
 	}
 	
 	state.EndBlock();
@@ -419,13 +600,9 @@ TEST(Zlib, SimpleUncompressed)
 
 TEST(Zlib, SimpleHuffman)
 {
-	auto bufferUncompressed = std::vector<unsigned char>(200, 3);
+	auto bufferUncompressed = readFile("e:\\tools\\ADInsight.exe");
 	
-	for (int i = 0; i < 32323; ++i)
-	{
-		bufferUncompressed.push_back(i );
-	}
-
+	 
 	testroundtrip(bufferUncompressed, 1);
 }
 
