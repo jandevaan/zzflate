@@ -56,7 +56,10 @@ public:
 
 	void Flush()
 	{
-		AppendToBitStream(0, 8 - _usedBitCount % 8);		
+		if (_usedBitCount == 0)
+			return;
+
+		AppendToBitStream(0, 8 - _usedBitCount);
 	}
 
 	bool WriteU16(uint16_t value)
