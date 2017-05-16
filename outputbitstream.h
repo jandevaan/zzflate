@@ -32,6 +32,7 @@ public:
 
 	void AppendToBitStream(code code)
 	{
+		assert(code.length != 0);
 		AppendToBitStream(code.bits, code.length);
 	}
 

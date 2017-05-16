@@ -1,6 +1,7 @@
 
 #include "outputbitstream.h"
 #include <gtest/gtest.h>
+#include "huffman.h"
 
 
 TEST(BitOutput, TestSimple)
@@ -31,4 +32,15 @@ TEST(BitOutput, TestSimple2)
 	strm.AppendToBitStream(15, 4);
 
 	EXPECT_EQ(buffer[0], 0xF3);
+}
+
+
+
+TEST(BitOutput, TrivHuffman)
+{
+	std::vector <char> buffer = {2, 1, 3, 3};
+
+	auto codes = huffman::generate(buffer);
+
+	EXPECT_EQ(codes[1].bits,0);
 }

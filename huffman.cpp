@@ -64,6 +64,10 @@ const int MAX_BITS = 30;
 
 unsigned huffman::reverse(unsigned value, int len)
 {
+	auto mask = ~((1 << len) - 1);
+
+	assert((value & mask) == 0);
+
 	return ::reverse(value) >> (32 - len);
 }
 
@@ -87,14 +91,19 @@ std::vector<code> huffman::generate(const std::vector<char>& lengths)
 		next_code[n] = bits;
 	}
 
-	std::vector<code> codes(lengths.size(), {});
+	std::vector<code> codes(lengths.size());
 	for (int n = 0; n < lengths.size(); n++)
 	{
 		int len = lengths[n];
 		if (len <= 0)
 			continue;
 
-		codes[n] = { len, (int)reverse(next_code[len], len) };
+		unsigned reversed = reverse(next_code[len], len);
+		if (reverse(reversed, len) != next_code[len])
+		{
+			break;
+		}
+		codes[n] = { len, (int)reversed };
 		next_code[len]++;
 	}
 
