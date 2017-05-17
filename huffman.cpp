@@ -72,7 +72,7 @@ unsigned huffman::reverse(unsigned value, int len)
 }
 
 
-std::vector<code> huffman::generate(const std::vector<char>& lengths)
+std::vector<code> huffman::generate(const std::vector<int>& lengths)
 {
 	
 	int bl_count[MAX_BITS] = {};
@@ -111,9 +111,9 @@ std::vector<code> huffman::generate(const std::vector<char>& lengths)
 }
 
 
-std::vector<char> huffman::defaultTableLengths()
+std::vector<int> huffman::defaultTableLengths()
 {
-	std::vector<char> lengths;
+	std::vector<int> lengths;
 
 	for (int i = 0; i < 288; ++i)
 	{

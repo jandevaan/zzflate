@@ -1,6 +1,6 @@
 ﻿namespace
 {
-	const char order[19] = { 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15 };
+	const char order[] = { 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15 };
 }
 
 
@@ -11,22 +11,6 @@ enum CurrentBlockType
 	UserDefinedHuffman
 };
  
-
-void WriteDistance(outputbitstream& stream, int offset)
-{
-	for (int n = 1; n < std::size(distanceTable); ++n)
-	{
-		if (offset < distanceTable[n + 1].distanceStart)
-		{
-			auto bucket = distanceTable[n - 1];
-			stream.AppendToBitStream(bucket.code, 5); // fixed 5 bit table
-			stream.AppendToBitStream(bucket.distanceStart - offset, bucket.bits);
-			return;
-		}
-	}
-
-	throw std::exception("Distance too far away");
-}
 
 void WriteLength(outputbitstream& stream, std::vector<code>& codes, int runLength)
 {
@@ -46,6 +30,23 @@ struct EncoderState
 
 	}
 
+
+
+	void WriteDistance(outputbitstream& stream, int offset)
+	{
+		for (int n = 1; n < std::size(distanceTable); ++n)
+		{
+			if (offset < distanceTable[n + 1].distanceStart)
+			{
+				auto bucket = distanceTable[n - 1];
+				stream.AppendToBitStream(dcodes[bucket.code]);  
+				stream.AppendToBitStream(bucket.distanceStart - offset, bucket.bits);
+				return;
+			}
+		}
+
+		throw std::exception("Distance too far away");
+	}
 
 	void StartBlock(CurrentBlockType type, int final)
 	{
@@ -82,40 +83,43 @@ struct EncoderState
 	};
 
 
-	std::vector<char> Lengths(std::vector<treeItem> tree)
+	std::vector<int> Lengths(std::vector<treeItem> tree)
 	{
-		std::vector<char> lengths = std::vector<char>();
+		std::vector<int> lengths = std::vector<int>();
 
 		for (auto t : tree)
 		{
 			if (t.right != ~0)
 				break;
 
-			lengths.push_back(t.bits);
+			if (lengths.size() <= t.left)
+			{
+				lengths.resize(t.left + 1);
+			}
+			
+			lengths[t.left] = t.bits;
 		}
 
 		return lengths;
 	}
 
-	std::vector<char> calcLengths(const std::vector<int>& freqsx)
+	std::vector<int> calcLengths(const std::vector<int>& freqsx)
 	{
-		//long long symbolcount = 0;
-		//
-		//for (auto f : freqsx)
-		//{
-		//	symbolcount += f;
-		//}
+		long long symbolcount = 0;
+		
+		for (auto f : freqsx)
+		{
+			symbolcount += f;
+		}
 
-		//// cheap hack to prevent excessively long codewords.
-		//int limit = symbolcount / (1 << 15);
+		// cheap hack to prevent excessively long codewords.
+		int limit = symbolcount / (1 << 15);
 		std::vector<record> records;
 		std::vector<treeItem> tree;
 		for (int i = 0; i < freqsx.size(); ++i)
 		{
-			if (freqsx[i] == 0)
-				continue;
-
-			int freq = freqsx[i];// != 0 ? std::max(limit, freqsx[i]) : 0;
+		  
+			int freq = freqsx[i] != 0 ? std::max(limit, freqsx[i]) : 0;
 			record rec = { freq, i };
 			records.push_back(rec);
 			tree.push_back({ rec.frequency, rec.id, -1 });
@@ -138,8 +142,7 @@ struct EncoderState
 			tree.push_back({ sumfreq, a.id, b.id });
 
 			record val = { sumfreq, (int)(tree.size() - 1) };
-
-
+ 
 			records.push_back(val);
 
 			std::sort(records.begin(), records.end(),
@@ -159,6 +162,8 @@ struct EncoderState
 
 		return Lengths(tree);
 	}
+
+
 	int FindBackRef(const unsigned char* source, int index, int end, int* offset)
 	{
 		if (index == 0)
@@ -217,64 +222,71 @@ struct EncoderState
 	{
 
 		auto comprecords = std::vector<compressionRecord>();
-
-		//
+		auto freqs = std::vector<int>(286,1);
+		
 		unsigned int backRefEnd = 0;		
-		//for (int i = 0; i < sourceLen; ++i)
-		//{
-		//	int offset;
-		//	//auto matchLength = FindBackRef(source, i, sourceLen, &offset);
-		//	if (true)
-		//	{
-		//		freqs[source[i]]++;				
-		//		continue;
-		//	}
+		for (int i = 0; i < sourceLen; ++i)
+		{
+			int offset;
+			auto matchLength = FindBackRef(source, i, sourceLen, &offset);
+			if (matchLength < 3)
+			{
+				freqs[source[i]]++;				
+				continue;
+			}
 
-		///*	freqs[lengthTable[matchLength].code]++;
+			freqs[lengthTable[matchLength].code]++;
 
-		//	comprecords.push_back({ i - backRefEnd, (unsigned short)offset, (unsigned short)matchLength });
-		//	i += matchLength - 1;
-		//	backRefEnd = i + 1;*/
-		//}
-		// 
+			comprecords.push_back({ i - backRefEnd, (unsigned short)offset, (unsigned short)matchLength });
+			i += matchLength - 1;
+			backRefEnd = i + 1;
+		}
+		 
 		comprecords.push_back({(unsigned int) (sourceLen - backRefEnd), 0,0});
 
-		//freqs[256]++;
-		//auto freqs = std::vector<int>(280,1);
+		freqs[256]++;
+		
 		StartBlock(type, final);
 
 		if (type == UserDefinedHuffman)
 		{
-			auto lengths = std::vector<char>(255, 8);
-			lengths.push_back(9);
-			lengths.push_back(9);
+			auto lengths = calcLengths(freqs);
+			auto distances = std::vector<int> {1};
 
-			auto distances = std::vector<char>() = {0};
+			std::vector<int> lengthFreqs = std::vector<int>(19,0);
 
-			
-			auto metacodesLengths = std::vector<char>() = { 
-				2,0,0,0, 
-				0,0,0,0, 
-				1,2 , 0, 0, 
-				0, 0, 0, 0, 
-				0, 0, 0 };
-	
-			
-			
+			for(auto l : lengths)
+			{
+				lengthFreqs[l] = 1;
+			}
+
+			for (auto l : distances)
+			{
+				lengthFreqs[l] = 1;
+			}
+			auto metacodesLengths = calcLengths(lengthFreqs);
+			metacodesLengths.resize(19);
+				 
 			stream.AppendToBitStream(lengths.size() - 257, 5);
 			stream.AppendToBitStream(distances.size() - 1, 5); // distance code count
 			stream.AppendToBitStream(metacodesLengths.size() - 4, 4);
 
 			for (int i = 0; i < 19; ++i)
 			{
-				stream.AppendToBitStream(metacodesLengths[order[i]], 3);
+				int length = metacodesLengths[order[i]];
+				stream.AppendToBitStream(length, 3);
 			}
 
 			auto metaCodes = huffman::generate(metacodesLengths);
 
 			for (auto len : lengths)
 			{
-				stream.AppendToBitStream(metaCodes[len]);
+				auto meta_code = metaCodes[len];
+				if (meta_code.length == 0)
+				{
+					assert(false);
+				}
+				stream.AppendToBitStream(meta_code);
 			}
 			
 			for (auto d : distances)
@@ -283,10 +295,17 @@ struct EncoderState
 			}
 
 			codes = huffman::generate(lengths);
+			dcodes = huffman::generate(distances);
 		}
 		else
 		{
 			codes = huffman::generate(huffman::defaultTableLengths());
+			dcodes = std::vector<code>(32);
+			for (int i = 0; i < 32; ++i)
+			{
+				dcodes[i] = {5, i};
+			}
+		
 		}
 
 		WriteRecords(source, comprecords, type, final);
@@ -319,5 +338,6 @@ struct EncoderState
 	CurrentBlockType _type;
 	outputbitstream stream;
 	std::vector<code> codes;
+	std::vector<code> dcodes;
 	int _level;
 };

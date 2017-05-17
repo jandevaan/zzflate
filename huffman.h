@@ -6,7 +6,7 @@ namespace huffman
 {
 
 	unsigned reverse(unsigned value, int len);
-	std::vector<code> generate(const std::vector<char>& bytes);  
-	std::vector<char> defaultTableLengths();
+	std::vector<code> generate(const std::vector<int>& bytes);  
+	std::vector<int> defaultTableLengths();
 };
 

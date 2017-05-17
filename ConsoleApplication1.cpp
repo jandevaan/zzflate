@@ -280,7 +280,9 @@ int testroundtrip(std::vector<unsigned char>& bufferUncompressed, int compressio
 	uLongf comp_len = (uLongf)bufferCompressed.size();
  
 	EncodeZlib(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
-	 
+	
+	std::cout << "Reduced " << testSize << " by " << ((testSize -comp_len) * 100 / testSize) << "%";
+
 	std::vector<unsigned char> decompressed(testSize);
 	auto unc_len = decompressed.size();
 
