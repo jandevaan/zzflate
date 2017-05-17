@@ -309,12 +309,15 @@ int main(int ac, char* av[])
 	return RUN_ALL_TESTS();
 }
 
-
+namespace
+{
+	std::vector<unsigned char> bufferUncompressed = readFile("e:\\tools\\ADInsight.exe");
+}
 
 
 TEST(Zlib, SimpleHuffman)
 {
-	auto bufferUncompressed = readFile("e:\\tools\\ADInsight.exe");
+	
 	 
 	 
 	testroundtrip(bufferUncompressed, 1);
@@ -323,7 +326,6 @@ TEST(Zlib, SimpleHuffman)
 
 TEST(Zlib, SimpleHuffman2)
 {
-	auto bufferUncompressed = readFile("e:\\tools\\ADInsight.exe");
 	 
 	testroundtrip(bufferUncompressed, 2);
 }
