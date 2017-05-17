@@ -1,4 +1,7 @@
-﻿
+﻿namespace
+{
+	const char order[19] = { 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15 };
+}
 
 
 enum CurrentBlockType
@@ -208,6 +211,7 @@ struct EncoderState
 		}
 	}
 
+	
 
 	void WriteBlockV(const unsigned char* source, size_t sourceLen, CurrentBlockType type, int final)
 	{
@@ -255,7 +259,6 @@ struct EncoderState
 				0, 0, 0, 0, 
 				0, 0, 0 };
 	
-			auto order = std::vector<char>() = { 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15 };
 			
 			
 			stream.AppendToBitStream(lengths.size() - 257, 5);

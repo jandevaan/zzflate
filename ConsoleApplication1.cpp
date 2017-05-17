@@ -273,7 +273,7 @@ void EncodeZlib(unsigned char *dest, unsigned long *destLen, const unsigned char
 
 int testroundtrip(std::vector<unsigned char>& bufferUncompressed, int compression)
 {
-	bufferUncompressed.resize(2000);
+	//bufferUncompressed.resize(2000);
 	auto testSize = bufferUncompressed.size();
 	auto  bufferCompressed = std::vector<unsigned char>(testSize * 3 / 2 + 5000);
 
@@ -322,8 +322,7 @@ TEST(Zlib, SimpleHuffman)
 TEST(Zlib, SimpleHuffman2)
 {
 	auto bufferUncompressed = readFile("e:\\tools\\ADInsight.exe");
-
-
+	 
 	testroundtrip(bufferUncompressed, 2);
 }
 
