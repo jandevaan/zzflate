@@ -296,7 +296,7 @@ struct EncoderState
 		{
 			int offset;
 			auto matchLength = FindBackRef(source, i, sourceLen, &offset);
-			if (true)
+			if (matchLength < 3)
 			{
 				freqs[source[i]]++;				
 				continue;

@@ -4,14 +4,27 @@ const int MOD_ADLER = 65521;
 uint32_t adler32x(const unsigned char *data, size_t len)
 {
 	uint32_t a = 1, b = 0;
-	size_t index;
+	size_t index = 0;
 
 	/* Process each byte of the data in order */
-	for (index = 0; index < len; ++index)
+	for (; index <= len - 4; index +=4)
 	{
-		a = (a + data[index]) % MOD_ADLER;
-		b = (b + a) % MOD_ADLER;
+		a = (a + data[index]); b = (b + a);
+		a = (a + data[index + 1]); b = (b + a);
+		a = (a + data[index + 2]); b = (b + a);
+		a = (a + data[index + 3]); b = (b + a);
+
+		a = a % MOD_ADLER;	b = b % MOD_ADLER;
 	}
+
+
+	/* Process each byte of the data in order */
+	for (;index < len; ++index)
+	{
+		a = (a + data[index]) ;b = (b + a) ;
+		a = a % MOD_ADLER;	b = b % MOD_ADLER;
+	}
+	
 
 	return (b << 16) | a;
 }
