@@ -73,8 +73,7 @@ unsigned huffman::reverse(unsigned value, int len)
 
 
 std::vector<code> huffman::generate(const std::vector<int>& lengths)
-{
-	
+{ 
 	int bl_count[MAX_BITS] = {};
 	for (int i = 0; i < lengths.size(); ++i)
 	{

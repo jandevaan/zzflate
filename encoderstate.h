@@ -1,9 +1,29 @@
-﻿namespace
+﻿
+#include <functional>
+
+
+namespace
 {
 	const char order[] = { 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15 };
-}
 
+	const std::vector<int> rle_distances =  { 1 };
+} 
 
+struct record
+{
+	int frequency;
+	int id;
+};
+
+class greater
+{
+public:
+	bool operator()(const record _Left, const record _Right) const
+	{
+		return _Left.frequency > _Right.frequency;
+	}
+};
+ 
 enum CurrentBlockType
 {
 	Uncompressed = 0b00,
@@ -53,19 +73,11 @@ struct EncoderState
 		stream.AppendToBitStream(final, 1); // final
 		stream.AppendToBitStream(type, 2); // fixed huffman table		
 
-		_type = type;
-		if (_type == FixedHuffman)
-		{
-			//		codes = huffman::generate(huffman::defaultTableLengths());
-		}
+		_type = type;		
 	}
+	 
 
-
-	struct record
-	{
-		int frequency;
-		int id;
-	};
+	
 	struct compressionRecord
 	{
 		unsigned int literals;
@@ -83,7 +95,7 @@ struct EncoderState
 	};
 
 
-	std::vector<int> Lengths(std::vector<treeItem> tree)
+	static std::vector<int> Lengths(const std::vector<treeItem>& tree, int maxLength)
 	{
 		std::vector<int> lengths = std::vector<int>();
 
@@ -103,7 +115,7 @@ struct EncoderState
 		return lengths;
 	}
 
-	std::vector<int> calcLengths(const std::vector<int>& freqsx)
+	std::vector<int> calcLengths(const std::vector<int>& freqsx, int maxLength)
 	{
 		long long symbolcount = 0;
 		
@@ -118,49 +130,54 @@ struct EncoderState
 		std::vector<treeItem> tree;
 		for (int i = 0; i < freqsx.size(); ++i)
 		{
-		  
 			int freq = freqsx[i] != 0 ? std::max(limit, freqsx[i]) : 0;
+			tree.push_back({ freq, i, -1 });
+			
+			if (freqsx[i] == 0)
+				continue;
+
 			record rec = { freq, i };
 			records.push_back(rec);
-			tree.push_back({ rec.frequency, rec.id, -1 });
+			
 		}
 
-		std::sort(records.begin(), records.end(),
-			[](auto a, auto b) -> bool { return a.frequency > b.frequency; });
+		greater pred = greater();
 
-		auto nonzero = std::count_if(records.begin(), records.end(), [](record r) -> bool { return r.frequency != 0; });
-
-		records.resize(nonzero);
+		std::make_heap(records.begin(), records.end(), pred);
 
 		while (records.size() >= 2)
 		{
-			auto a = records[records.size() - 2];
-			auto b = records[records.size() - 1];
-			records.resize(records.size() - 2);
+			pop_heap(records.begin(), records.end(), pred);
+			record a = records.back();
+			records.pop_back();
+			
+			pop_heap(records.begin(), records.end(), pred);
+			record b = records.back();
+			records.pop_back();
 
 			auto sumfreq = a.frequency + b.frequency;
 			tree.push_back({ sumfreq, a.id, b.id });
 
-			record val = { sumfreq, (int)(tree.size() - 1) };
- 
-			records.push_back(val);
-
-			std::sort(records.begin(), records.end(),
-				[](auto a, auto b) -> bool { return a.frequency > b.frequency; });
-
+			records.push_back({ sumfreq, (int)(tree.size() - 1) });
+			push_heap(records.begin(), records.end(), pred);
 		}
 
+		std::vector<int> lengthCounts(30, 0);
+		
 		for (int i = tree.size() - 1; i > 0; --i)
 		{
 			auto item = tree[i];
 			if (item.right == -1)
+			{
+				lengthCounts[item.bits]++;
 				continue;
-
+			}
+				
 			tree[item.left].bits = item.bits + 1;
 			tree[item.right].bits = item.bits + 1;
 		}
 
-		return Lengths(tree);
+		return Lengths(tree, 15);
 	}
 
 
@@ -216,12 +233,62 @@ struct EncoderState
 		}
 	}
 
-	
+
+	void prepareCodes(std::vector<int>& freqs)
+	{
+		auto lengths = calcLengths(freqs, 15);
+		 
+		std::vector<int> lengthFreqs = std::vector<int>(19,0);
+
+		for(auto l : lengths)
+		{
+			lengthFreqs[l] = 1;
+		}
+		  
+		for (auto l : rle_distances)
+		{
+			lengthFreqs[l] = 1;
+		}
+		auto metacodesLengths = calcLengths(lengthFreqs, 7);
+		metacodesLengths.resize(19);
+				 
+		stream.AppendToBitStream(lengths.size() - 257, 5);
+		stream.AppendToBitStream(rle_distances.size() - 1, 5); // distance code count
+		stream.AppendToBitStream(metacodesLengths.size() - 4, 4);
+
+		for (int i = 0; i < 19; ++i)
+		{
+			int length = metacodesLengths[order[i]];
+			stream.AppendToBitStream(length, 3);
+		}
+
+		auto metaCodes = huffman::generate(metacodesLengths);
+
+		for (auto len : lengths)
+		{
+			auto meta_code = metaCodes[len];
+			if (meta_code.length == 0)
+			{
+				assert(false);
+			}
+			stream.AppendToBitStream(meta_code);
+		}
+			
+		for (auto d : rle_distances)
+		{
+			stream.AppendToBitStream(metaCodes[d]);
+		}
+
+		codes = huffman::generate(lengths);
+		dcodes = huffman::generate(rle_distances);
+	}
 
 	void WriteBlockV(const unsigned char* source, size_t sourceLen, CurrentBlockType type, int final)
 	{
 
 		auto comprecords = std::vector<compressionRecord>();
+		comprecords.reserve(13000);
+
 		auto freqs = std::vector<int>(286,1);
 		
 		unsigned int backRefEnd = 0;		
@@ -229,7 +296,7 @@ struct EncoderState
 		{
 			int offset;
 			auto matchLength = FindBackRef(source, i, sourceLen, &offset);
-			if (matchLength < 3)
+			if (true)
 			{
 				freqs[source[i]]++;				
 				continue;
@@ -250,52 +317,7 @@ struct EncoderState
 
 		if (type == UserDefinedHuffman)
 		{
-			auto lengths = calcLengths(freqs);
-			auto distances = std::vector<int> {1};
-
-			std::vector<int> lengthFreqs = std::vector<int>(19,0);
-
-			for(auto l : lengths)
-			{
-				lengthFreqs[l] = 1;
-			}
-
-			for (auto l : distances)
-			{
-				lengthFreqs[l] = 1;
-			}
-			auto metacodesLengths = calcLengths(lengthFreqs);
-			metacodesLengths.resize(19);
-				 
-			stream.AppendToBitStream(lengths.size() - 257, 5);
-			stream.AppendToBitStream(distances.size() - 1, 5); // distance code count
-			stream.AppendToBitStream(metacodesLengths.size() - 4, 4);
-
-			for (int i = 0; i < 19; ++i)
-			{
-				int length = metacodesLengths[order[i]];
-				stream.AppendToBitStream(length, 3);
-			}
-
-			auto metaCodes = huffman::generate(metacodesLengths);
-
-			for (auto len : lengths)
-			{
-				auto meta_code = metaCodes[len];
-				if (meta_code.length == 0)
-				{
-					assert(false);
-				}
-				stream.AppendToBitStream(meta_code);
-			}
-			
-			for (auto d : distances)
-			{
-				stream.AppendToBitStream(metaCodes[d]);
-			}
-
-			codes = huffman::generate(lengths);
-			dcodes = huffman::generate(distances);
+			prepareCodes(freqs);
 		}
 		else
 		{

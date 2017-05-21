@@ -276,10 +276,13 @@ int testroundtrip(std::vector<unsigned char>& bufferUncompressed, int compressio
 	//bufferUncompressed.resize(2000);
 	auto testSize = bufferUncompressed.size();
 	auto  bufferCompressed = std::vector<unsigned char>(testSize * 3 / 2 + 5000);
+	uLongf comp_len;
 
-	uLongf comp_len = (uLongf)bufferCompressed.size();
- 
-	EncodeZlib(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
+	for (int i = 0; i < 10; ++i)
+	{
+		comp_len = (uLongf)bufferCompressed.size();
+		EncodeZlib(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
+	}
 	
 	std::cout << "Reduced " << testSize << " by " << ((testSize -comp_len) * 100 / testSize) << "%";
 
@@ -316,10 +319,7 @@ namespace
 
 
 TEST(Zlib, SimpleHuffman)
-{
-	
-	 
-	 
+{ 
 	testroundtrip(bufferUncompressed, 1);
 }
 
