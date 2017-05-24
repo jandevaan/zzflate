@@ -186,6 +186,7 @@ struct EncoderState
 		if (index == 0)
 			return 0;
 
+
 		int max = std::min(end, index + 255);
 
 		auto val = source[index - 1];
@@ -283,6 +284,11 @@ struct EncoderState
 		dcodes = huffman::generate(rle_distances);
 	}
 
+	std::vector<unsigned short> hashtable = std::vector<unsigned short>(8000);
+
+	std::vector<unsigned short> backpointer = std::vector<unsigned short>(65536);
+
+
 	void WriteBlockV(const unsigned char* source, size_t sourceLen, CurrentBlockType type, int final)
 	{
 
@@ -290,6 +296,7 @@ struct EncoderState
 		comprecords.reserve(13000);
 
 		auto freqs = std::vector<int>(286,1);
+	    
 		
 		unsigned int backRefEnd = 0;		
 		for (int i = 0; i < sourceLen; ++i)
