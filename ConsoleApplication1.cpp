@@ -323,14 +323,14 @@ namespace
 
 TEST(Zlib, SimpleHuffman)
 { 
-	//bufferUncompressed.resize(2000);
+	
 	testroundtrip(bufferUncompressed, 1);
 }
 
 
 TEST(Zlib, SimpleHuffman2)
 {
-	 
+//	bufferUncompressed.resize(2000);
 	testroundtrip(bufferUncompressed, 2);
 }
 

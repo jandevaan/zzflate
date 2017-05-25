@@ -7,6 +7,7 @@ namespace
 	const char order[] = { 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15 };
 
 	const std::vector<int> rle_distances =  { 1 };
+
 } 
 
 struct record
@@ -51,21 +52,26 @@ struct EncoderState
 	}
 
 
-
-	void WriteDistance(outputbitstream& stream, int offset)
+	int FindDistance(int offset)
 	{
 		for (int n = 1; n < std::size(distanceTable); ++n)
 		{
 			if (offset < distanceTable[n].distanceStart)
 			{
-				auto bucket = distanceTable[n - 1];
-				stream.AppendToBitStream(dcodes[bucket.code]);  
-				stream.AppendToBitStream(offset - bucket.distanceStart, bucket.bits);
-				return;
+				return n - 1;
 			}
 		}
+		return -1;
+	}
 
-		throw std::exception("Distance too far away");
+	void WriteDistance(outputbitstream& stream, int offset)
+	{
+		auto i = FindDistance(offset);
+
+		auto bucket = distanceTable[i];
+		stream.AppendToBitStream(dcodes[bucket.code]);
+		stream.AppendToBitStream(offset - bucket.distanceStart, bucket.bits);
+
 	}
 
 	void StartBlock(CurrentBlockType type, int final)
@@ -234,26 +240,35 @@ struct EncoderState
 	}
 
 
-	void prepareCodes(std::vector<int>& freqs)
+	std::vector<int> calcMetaLengths(std::vector<int> lengths, std::vector<int> distances)
 	{
-		auto lengths = calcLengths(freqs, 15);
-		 
-		std::vector<int> lengthFreqs = std::vector<int>(19,0);
+		std::vector<int> lengthFreqs = std::vector<int>(19, 0);
 
 		for(auto l : lengths)
 		{
 			lengthFreqs[l] = 1;
 		}
-		  
-		for (auto l : rle_distances)
+
+		for (auto l : distances)
 		{
 			lengthFreqs[l] = 1;
 		}
+
 		auto metacodesLengths = calcLengths(lengthFreqs, 7);
 		metacodesLengths.resize(19);
+
+		return metacodesLengths;
+	}
+
+	void prepareCodes(const std::vector<int>& symbolFreqs, const std::vector<int>& distanceFrequencies)
+	{
+		auto symLengths = calcLengths(symbolFreqs, 15);
+		auto distLengths = calcLengths(distanceFrequencies, 15);
+
+		auto metacodesLengths = calcMetaLengths(symLengths, distLengths); 
 				 
-		stream.AppendToBitStream(lengths.size() - 257, 5);
-		stream.AppendToBitStream(rle_distances.size() - 1, 5); // distance code count
+		stream.AppendToBitStream(symLengths.size() - 257, 5);
+		stream.AppendToBitStream(distLengths.size() - 1, 5); // distance code count
 		stream.AppendToBitStream(metacodesLengths.size() - 4, 4);
 
 		for (int i = 0; i < 19; ++i)
@@ -264,7 +279,7 @@ struct EncoderState
 
 		auto metaCodes = huffman::generate(metacodesLengths);
 
-		for (auto len : lengths)
+		for (auto len : symLengths)
 		{
 			auto meta_code = metaCodes[len];
 			if (meta_code.length == 0)
@@ -274,13 +289,13 @@ struct EncoderState
 			stream.AppendToBitStream(meta_code);
 		}
 			
-		for (auto d : rle_distances)
+		for (auto d : distLengths)
 		{
 			stream.AppendToBitStream(metaCodes[d]);
 		}
 
-		codes = huffman::generate(lengths);
-		dcodes = huffman::generate(rle_distances);
+		codes = huffman::generate(symLengths);
+		dcodes = huffman::generate(distLengths);
 	}
 
 	std::vector<unsigned short> hashtable = std::vector<unsigned short>(65536, ~0);
@@ -328,15 +343,13 @@ struct EncoderState
 		auto comprecords = std::vector<compressionRecord>();
 		comprecords.reserve(13000);
 
-		auto freqs = std::vector<int>(286,1);
+		auto symbolFrequencies = std::vector<int>(286,1);
+		auto distanceFrequencies = std::vector<int>(30, 0);
 
 		unsigned int backRefEnd = 0;		
 		for (auto i = 0u; i < length; ++i)
 		{
-			auto a = source[i];
-			auto b = source[i + 1];
-			auto c = source[i + 2];
-
+			
 			auto newHash = CalcHash(i);
 			auto oldVal = hashtable[newHash];			
 			//backpointer[i & 0x7FFF] = oldVal;			
@@ -344,28 +357,22 @@ struct EncoderState
 
 			if (oldVal > 0x7FFF)
 			{
-				freqs[source[i]]++;
+				symbolFrequencies[source[i]]++;
 				continue;;
 			}
 			
 			unsigned offset = matchOffset(i, oldVal);
-			if (type == UserDefinedHuffman && offset < i-1)
-			{
-				freqs[source[i]]++;
-				continue;
-			}
+			
 			int matchLength = countMatches(i, offset);
-
-			//auto matchLength = FindBackRef(i, length, &offset);
 
 			if (matchLength < 3)
 			{
-				freqs[source[i]]++;				
+				symbolFrequencies[source[i]]++;				
 				continue;
 			}
 
-			freqs[lengthTable[matchLength].code]++;
-
+			symbolFrequencies[lengthTable[matchLength].code]++;
+			distanceFrequencies[FindDistance(i - offset)]++;
 			comprecords.push_back({ i - backRefEnd, (unsigned short)(i - offset), (unsigned short)matchLength });
 			i += matchLength - 1;
 			backRefEnd = i + 1;
@@ -373,13 +380,13 @@ struct EncoderState
 		 
 		comprecords.push_back({(unsigned int) (length - backRefEnd), 0,0});
 
-		freqs[256]++;
+		symbolFrequencies[256]++;
 		
 		StartBlock(type, final);
 
 		if (type == UserDefinedHuffman)
 		{
-			prepareCodes(freqs);
+			prepareCodes(symbolFrequencies, distanceFrequencies);
 		}
 		else
 		{
