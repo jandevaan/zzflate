@@ -83,7 +83,7 @@ distanceRecord distanceTable[31]{
 	20,9,1025,
 	21,9,1537,
 	22,10,2049,
-	23,10,3037,
+	23,10,3073,
 	24,11,4097,
 	25,11,6145,
 	26,12,8193,
@@ -233,15 +233,15 @@ const int ChooseRunCount(int repeat_count)
 	return std::min(repeat_count - 3, 258);
 }
 
-void WriteDeflateBlock(EncoderState& state, const unsigned char* source, size_t sourceLen)
+void WriteDeflateBlock(EncoderState& state)
 {
 	if (state._level == 0)
 	{		
-		state.writeUncompressedBlock(source, (uint16_t)sourceLen, 1);
+		state.writeUncompressedBlock(1);
 	}
 	else if (state._level > 0)
 	{
-		state.WriteBlockV(source, sourceLen, (CurrentBlockType)state._level, 1);
+		state.WriteBlockV((CurrentBlockType)state._level, 1);
 	}
 	
 	state.EndBlock();
@@ -260,8 +260,11 @@ void EncodeZlib(unsigned char *dest, unsigned long *destLen, const unsigned char
 	auto header = getHeader();	
 	state.stream.writebyte(header.CMF);
 	state.stream.writebyte(header.FLG);
-	  
-	WriteDeflateBlock(state, source, sourceLen);
+	
+	state.source = source;
+	state.length = sourceLen;
+
+	WriteDeflateBlock(state);
 
 	// end of zlib stream (not block!)
 	auto adler = adler32x(source, sourceLen);
@@ -320,6 +323,7 @@ namespace
 
 TEST(Zlib, SimpleHuffman)
 { 
+	//bufferUncompressed.resize(2000);
 	testroundtrip(bufferUncompressed, 1);
 }
 

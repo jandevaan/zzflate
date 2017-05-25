@@ -56,11 +56,11 @@ struct EncoderState
 	{
 		for (int n = 1; n < std::size(distanceTable); ++n)
 		{
-			if (offset < distanceTable[n + 1].distanceStart)
+			if (offset < distanceTable[n].distanceStart)
 			{
 				auto bucket = distanceTable[n - 1];
 				stream.AppendToBitStream(dcodes[bucket.code]);  
-				stream.AppendToBitStream(bucket.distanceStart - offset, bucket.bits);
+				stream.AppendToBitStream(offset - bucket.distanceStart, bucket.bits);
 				return;
 			}
 		}
@@ -181,11 +181,10 @@ struct EncoderState
 	}
 
 
-	int FindBackRef(const unsigned char* source, int index, int end, int* offset)
+	int FindBackRef(int index, int end, int* offset)
 	{
 		if (index == 0)
 			return 0;
-
 
 		int max = std::min(end, index + 255);
 
@@ -284,25 +283,81 @@ struct EncoderState
 		dcodes = huffman::generate(rle_distances);
 	}
 
-	std::vector<unsigned short> hashtable = std::vector<unsigned short>(8000);
+	std::vector<unsigned short> hashtable = std::vector<unsigned short>(65536, ~0);
 
-	std::vector<unsigned short> backpointer = std::vector<unsigned short>(65536);
+	std::vector<unsigned short> backpointer = std::vector<unsigned short>(32768, ~0);
+	const unsigned char* source;
+	size_t length;
 
+	int CalcHash(int i)
+	{
+		return source[i] ^ (source[i + 1] << 8) ^ (source[i + 2] * 0xFF);
+	}
 
-	void WriteBlockV(const unsigned char* source, size_t sourceLen, CurrentBlockType type, int final)
+	unsigned matchOffset(unsigned i, unsigned short oldVal)
+	{
+		
+		auto offset =  (i & ~0x7FFF) + oldVal;
+		
+
+		if (offset >= i)
+		{
+			offset -= 0x8000;
+		}
+			
+		return offset;
+
+	}
+
+	int countMatches(unsigned i, unsigned offset)
+	{
+		int limit = std::min(255, (int)(length - i));
+		int matchLength = 0;
+		for (; matchLength < limit; ++matchLength)
+		{
+			if (source[i + matchLength] != source[offset + matchLength])
+				break;
+		}
+
+		return matchLength;
+	}
+
+	void WriteBlockV(CurrentBlockType type, int final)
 	{
 
 		auto comprecords = std::vector<compressionRecord>();
 		comprecords.reserve(13000);
 
 		auto freqs = std::vector<int>(286,1);
-	    
-		
+
 		unsigned int backRefEnd = 0;		
-		for (int i = 0; i < sourceLen; ++i)
+		for (auto i = 0u; i < length; ++i)
 		{
-			int offset;
-			auto matchLength = FindBackRef(source, i, sourceLen, &offset);
+			auto a = source[i];
+			auto b = source[i + 1];
+			auto c = source[i + 2];
+
+			auto newHash = CalcHash(i);
+			auto oldVal = hashtable[newHash];			
+			//backpointer[i & 0x7FFF] = oldVal;			
+			hashtable[newHash] = i & 0x7FFF;
+
+			if (oldVal > 0x7FFF)
+			{
+				freqs[source[i]]++;
+				continue;;
+			}
+			
+			unsigned offset = matchOffset(i, oldVal);
+			if (type == UserDefinedHuffman && offset < i-1)
+			{
+				freqs[source[i]]++;
+				continue;
+			}
+			int matchLength = countMatches(i, offset);
+
+			//auto matchLength = FindBackRef(i, length, &offset);
+
 			if (matchLength < 3)
 			{
 				freqs[source[i]]++;				
@@ -311,12 +366,12 @@ struct EncoderState
 
 			freqs[lengthTable[matchLength].code]++;
 
-			comprecords.push_back({ i - backRefEnd, (unsigned short)offset, (unsigned short)matchLength });
+			comprecords.push_back({ i - backRefEnd, (unsigned short)(i - offset), (unsigned short)matchLength });
 			i += matchLength - 1;
 			backRefEnd = i + 1;
 		}
 		 
-		comprecords.push_back({(unsigned int) (sourceLen - backRefEnd), 0,0});
+		comprecords.push_back({(unsigned int) (length - backRefEnd), 0,0});
 
 		freqs[256]++;
 		
@@ -332,7 +387,7 @@ struct EncoderState
 			dcodes = std::vector<code>(32);
 			for (int i = 0; i < 32; ++i)
 			{
-				dcodes[i] = {5, i};
+				dcodes[i] = {5, (int)huffman::reverse(i, 5)};
 			}
 		
 		}
@@ -343,16 +398,15 @@ struct EncoderState
 
 
 
-	void writeUncompressedBlock(const unsigned char* source, uint16_t sourceLen, int final)
+	void writeUncompressedBlock(int final)
 	{
 		StartBlock(Uncompressed, final);
 		stream.Flush();
+		stream.WriteU16(this->length);
+		stream.WriteU16(~this->length);
 
-		stream.WriteU16(sourceLen);
-		stream.WriteU16(~sourceLen);
-
-		memcpy(stream._stream, source, sourceLen);
-		stream._stream += sourceLen;
+		memcpy(stream._stream, source, this->length);
+		stream._stream += this->length;
 
 	}
 
