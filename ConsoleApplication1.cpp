@@ -233,15 +233,15 @@ const int ChooseRunCount(int repeat_count)
 	return std::min(repeat_count - 3, 258);
 }
 
-void WriteDeflateBlock(EncoderState& state)
+void WriteDeflateBlock(EncoderState& state, int final)
 {
 	if (state._level == 0)
 	{		
-		state.writeUncompressedBlock(1);
+		state.writeUncompressedBlock(final);
 	}
 	else if (state._level > 0)
 	{
-		state.WriteBlockV((CurrentBlockType)state._level, 1);
+		state.WriteBlockV((CurrentBlockType)state._level, final);
 	}
 	
 	state.EndBlock();
@@ -261,22 +261,31 @@ void EncodeZlib(unsigned char *dest, unsigned long *destLen, const unsigned char
 	state.stream.writebyte(header.CMF);
 	state.stream.writebyte(header.FLG);
 	
+	auto end = source + sourceLen;
 	state.source = source;
-	state.length = sourceLen;
 
-	WriteDeflateBlock(state);
+	auto adler = adler32x(source, sourceLen);
+
+	while (state.source  != end)
+	{
+		int bytes = std::min(end - state.source, 65536ll);
+		state.length = bytes;
+		WriteDeflateBlock(state, state.source + bytes == end ? 1 : 0);
+		state.source += bytes;		
+	}
+
+	
 
 	// end of zlib stream (not block!)
-	auto adler = adler32x(source, sourceLen);
 	state.stream.Flush();
 	state.stream.WriteBigEndianU32(adler);
 
 	*destLen = (int)state.stream.byteswritten();
 }
 
-int testroundtrip(std::vector<unsigned char>& bufferUncompressed, int compression)
-{
-	//bufferUncompressed.resize(2000);
+
+int testroundtripperf(std::vector<unsigned char>& bufferUncompressed, int compression)
+{ 
 	auto testSize = bufferUncompressed.size();
 	auto  bufferCompressed = std::vector<unsigned char>(testSize * 3 / 2 + 5000);
 	uLongf comp_len;
@@ -286,7 +295,18 @@ int testroundtrip(std::vector<unsigned char>& bufferUncompressed, int compressio
 		comp_len = (uLongf)bufferCompressed.size();
 		EncodeZlib(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
 	}
-	
+	return 0;
+}
+
+int testroundtrip(std::vector<unsigned char>& bufferUncompressed, int compression)
+{ 
+	auto testSize = bufferUncompressed.size();
+	auto  bufferCompressed = std::vector<unsigned char>(testSize * 3 / 2 + 5000);
+	uLongf comp_len;
+
+	comp_len = (uLongf)bufferCompressed.size();
+	EncodeZlib(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
+
 	std::cout << "Reduced " << testSize << " by " << ((testSize -comp_len) * 100 / testSize) << "%";
 
 	std::vector<unsigned char> decompressed(testSize);
@@ -321,16 +341,14 @@ namespace
 }
 
 
-TEST(Zlib, SimpleHuffman)
+TEST(Zlib, FixedHuffman)
 { 
 	
 	testroundtrip(bufferUncompressed, 1);
 }
 
-
-TEST(Zlib, SimpleHuffman2)
-{
-//	bufferUncompressed.resize(2000);
+TEST(Zlib, UserHuffman)
+{ 
 	testroundtrip(bufferUncompressed, 2);
 }
 
@@ -363,4 +381,18 @@ TEST(Zlib, GenerateHuffman)
 	EXPECT_EQ(result[280].bits, huffman::reverse(0b11000000, huffman::defaultTableLengths()[280]));
 	EXPECT_EQ(result[287].bits, huffman::reverse(0b11000111, huffman::defaultTableLengths()[287]));
 	//EXPECT_EQ(result[0], 0);
+}
+
+
+
+TEST(ZlibPerf, FixedHuffmanPerf)
+{
+
+	testroundtripperf(bufferUncompressed, 1);
+}
+
+TEST(ZlibPerf, UserHuffmanPerf)
+{
+
+	testroundtripperf(bufferUncompressed, 2);
 }

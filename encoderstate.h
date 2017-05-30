@@ -8,6 +8,8 @@ namespace
 
 	const std::vector<int> rle_distances =  { 1 };
 
+	const unsigned hashSize = 0x1600;
+	const unsigned hashMask = hashSize -1;
 } 
 
 struct record
@@ -48,7 +50,7 @@ struct EncoderState
 		: stream(outputBuffer),
 		_level(level)
 	{
-
+		comprecords.reserve(3000);
 	}
 
 
@@ -298,79 +300,77 @@ struct EncoderState
 		dcodes = huffman::generate(distLengths);
 	}
 
-	std::vector<unsigned short> hashtable = std::vector<unsigned short>(65536, ~0);
+	std::vector<unsigned short> hashtable = std::vector<unsigned short>(hashSize, ~0);
 
-	std::vector<unsigned short> backpointer = std::vector<unsigned short>(32768, ~0);
 	const unsigned char* source;
 	size_t length;
 
-	int CalcHash(int i)
+	unsigned int CalcHash(int i)
 	{
-		return source[i] ^ (source[i + 1] << 8) ^ (source[i + 2] * 0xFF);
+		return (source[i] * 0x102u) ^ (source[i + 1] * 0xF00Fu) ^ (source[i + 2] * 0xFFu);
 	}
 
-	unsigned matchOffset(unsigned i, unsigned short oldVal)
-	{
-		
+	int matchOffset(unsigned iu, unsigned short oldVal)
+	{ 
+		int i = iu;
 		auto offset =  (i & ~0x7FFF) + oldVal;
 		
+		unsigned val = offset >= i;
 
-		if (offset >= i)
-		{
-			offset -= 0x8000;
-		}
-			
-		return offset;
+		return offset - val * 0x8000;
 
 	}
 
-	int countMatches(unsigned i, unsigned offset)
+    int countMatches(int i, int offset)
 	{
+		auto a = source + i;
+		auto b = source + offset;
+
 		int limit = std::min(255, (int)(length - i));
 		int matchLength = 0;
+		
 		for (; matchLength < limit; ++matchLength)
 		{
-			if (source[i + matchLength] != source[offset + matchLength])
+			if (a[matchLength] != b[matchLength])
 				break;
 		}
 
 		return matchLength;
 	}
 
+	std::vector<compressionRecord> comprecords;
+
 	void WriteBlockV(CurrentBlockType type, int final)
 	{
 
-		auto comprecords = std::vector<compressionRecord>();
-		comprecords.reserve(13000);
+		comprecords.clear();
 
-		auto symbolFrequencies = std::vector<int>(286,1);
+		auto symbolFreqs = std::vector<int>(286,1);
+		auto symbolFrequencies = &symbolFreqs[0];
 		auto distanceFrequencies = std::vector<int>(30, 0);
-
+		auto pHash = &hashtable[0];
 		unsigned int backRefEnd = 0;		
 		for (auto i = 0u; i < length; ++i)
 		{
-			
-			auto newHash = CalcHash(i);
-			auto oldVal = hashtable[newHash];			
-			//backpointer[i & 0x7FFF] = oldVal;			
-			hashtable[newHash] = i & 0x7FFF;
-
+			auto newHash = CalcHash(i) & hashMask;
+			unsigned oldVal = pHash[newHash];
+			pHash[newHash] = i & 0x7FFF; 
 			if (oldVal > 0x7FFF)
 			{
 				symbolFrequencies[source[i]]++;
 				continue;;
 			}
 			
-			unsigned offset = matchOffset(i, oldVal);
+			auto offset = matchOffset(i, oldVal);
 			
 			int matchLength = countMatches(i, offset);
+		 
 
-			if (matchLength < 3)
+			if (matchLength <3)
 			{
-				symbolFrequencies[source[i]]++;				
+				symbolFrequencies[source[i]]++;
 				continue;
 			}
-
 			symbolFrequencies[lengthTable[matchLength].code]++;
 			distanceFrequencies[FindDistance(i - offset)]++;
 			comprecords.push_back({ i - backRefEnd, (unsigned short)(i - offset), (unsigned short)matchLength });
@@ -386,7 +386,7 @@ struct EncoderState
 
 		if (type == UserDefinedHuffman)
 		{
-			prepareCodes(symbolFrequencies, distanceFrequencies);
+			prepareCodes(symbolFreqs, distanceFrequencies);
 		}
 		else
 		{

@@ -3,7 +3,7 @@ const int MOD_ADLER = 65521;
 
 uint32_t adler32x(const unsigned char *data, size_t len)
 {
-	uint32_t a = 1, b = 0;
+	uint64_t a = 1, b = 0;
 	size_t index = 0;
 
 	/* Process each byte of the data in order */
@@ -14,7 +14,7 @@ uint32_t adler32x(const unsigned char *data, size_t len)
 		a = (a + data[index + 2]); b = (b + a);
 		a = (a + data[index + 3]); b = (b + a);
 
-		a = a % MOD_ADLER;	b = b % MOD_ADLER;
+		//a = a % MOD_ADLER;	b = b % MOD_ADLER;
 	}
 
 
@@ -24,7 +24,7 @@ uint32_t adler32x(const unsigned char *data, size_t len)
 		a = (a + data[index]) ;b = (b + a) ;
 		a = a % MOD_ADLER;	b = b % MOD_ADLER;
 	}
-	
+	a = a % MOD_ADLER;	b = b % MOD_ADLER;
 
 	return (b << 16) | a;
 }
