@@ -6,9 +6,7 @@ namespace
 {
 	const char order[] = { 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15 };
 
-	const std::vector<int> rle_distances =  { 1 };
-
-	const unsigned hashSize = 0x1600;
+	const unsigned hashSize = 0x2000;
 	const unsigned hashMask = hashSize -1;
 } 
 
@@ -326,7 +324,7 @@ struct EncoderState
 		auto a = source + i;
 		auto b = source + offset;
 
-		int limit = std::min(255, (int)(length - i));
+		int limit = std::min(258, (int)(length - i));
 		int matchLength = 0;
 		
 		for (; matchLength < limit; ++matchLength)
@@ -349,7 +347,8 @@ struct EncoderState
 		auto symbolFrequencies = &symbolFreqs[0];
 		auto distanceFrequencies = std::vector<int>(30, 0);
 		auto pHash = &hashtable[0];
-		unsigned int backRefEnd = 0;		
+		unsigned int backRefEnd = 0;	
+
 		for (auto i = 0u; i < length; ++i)
 		{
 			auto newHash = CalcHash(i) & hashMask;
@@ -360,17 +359,32 @@ struct EncoderState
 				symbolFrequencies[source[i]]++;
 				continue;;
 			}
-			
+
+			  
 			auto offset = matchOffset(i, oldVal);
 			
 			int matchLength = countMatches(i, offset);
 		 
-
 			if (matchLength <3)
 			{
 				symbolFrequencies[source[i]]++;
 				continue;
 			}
+			 
+		/*	auto newHash2 = CalcHash(i + 1) % hashMask;
+			unsigned short old_val2 = pHash[newHash2];
+			if (old_val2 >= 0)
+			{
+				auto offset2 = matchOffset(i + 1, old_val2);
+				int matchLength2 = countMatches(i + 1, offset2);
+
+				if (matchLength2 > matchLength)
+				{
+					symbolFrequencies[source[i]]++;
+					continue;
+				}
+			}*/
+
 			symbolFrequencies[lengthTable[matchLength].code]++;
 			distanceFrequencies[FindDistance(i - offset)]++;
 			comprecords.push_back({ i - backRefEnd, (unsigned short)(i - offset), (unsigned short)matchLength });

@@ -247,7 +247,7 @@ void WriteDeflateBlock(EncoderState& state, int final)
 	state.EndBlock();
 }
 
-void EncodeZlib(unsigned char *dest, unsigned long *destLen, const unsigned char *source, size_t sourceLen, int level)
+void ZzFlateEncode(unsigned char *dest, unsigned long *destLen, const unsigned char *source, size_t sourceLen, int level)
 {
 	if (level < 0 || level > 2)
 	{
@@ -293,8 +293,27 @@ int testroundtripperf(std::vector<unsigned char>& bufferUncompressed, int compre
 	for (int i = 0; i < 10; ++i)
 	{
 		comp_len = (uLongf)bufferCompressed.size();
-		EncodeZlib(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
+		ZzFlateEncode(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
 	}
+	return 0;
+}
+
+
+int testroundtripperfzlib(std::vector<unsigned char>& bufferUncompressed, int compression)
+{
+	uLong source_len = bufferUncompressed.size();
+	auto testSize = source_len;
+	auto  bufferCompressed = std::vector<unsigned char>(testSize * 3 / 2 + 5000);
+	uLongf comp_len;
+
+	for (int i = 0; i < 10; ++i)
+	{
+		comp_len = (uLongf)bufferCompressed.size();
+		compress2(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], source_len, compression);
+	}
+
+	std::cout << "Reduced " << testSize << " by " << ((testSize - comp_len) * 100 / testSize) << "%";
+
 	return 0;
 }
 
@@ -305,7 +324,7 @@ int testroundtrip(std::vector<unsigned char>& bufferUncompressed, int compressio
 	uLongf comp_len;
 
 	comp_len = (uLongf)bufferCompressed.size();
-	EncodeZlib(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
+	ZzFlateEncode(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
 
 	std::cout << "Reduced " << testSize << " by " << ((testSize -comp_len) * 100 / testSize) << "%";
 
@@ -385,14 +404,37 @@ TEST(Zlib, GenerateHuffman)
 
 
 
-TEST(ZlibPerf, FixedHuffmanPerf)
-{
-
-	testroundtripperf(bufferUncompressed, 1);
-}
-
-TEST(ZlibPerf, UserHuffmanPerf)
+TEST(ZZFlatePerf, UserHuffmanPerf)
 {
 
 	testroundtripperf(bufferUncompressed, 2);
+}
+
+
+
+
+
+TEST(ZZFlatePerf, UserHuffmanPerf1)
+{
+
+	testroundtripperf(bufferUncompressed, 2);
+}
+
+
+
+
+TEST(ZlibPerf, ZlibCompress1)
+{
+
+	testroundtripperfzlib(bufferUncompressed, 1);
+}
+
+TEST(ZlibPerf, ZlibCompress6)
+{
+	testroundtripperfzlib(bufferUncompressed, 6);
+}
+
+TEST(ZlibPerf, ZlibCompress9)
+{
+	testroundtripperfzlib(bufferUncompressed, 9);
 }
