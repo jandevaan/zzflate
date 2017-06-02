@@ -30,6 +30,7 @@ TEST(BitOutput, TestSimple2)
 	strm.AppendToBitStream(3, 2);
 	strm.AppendToBitStream(0, 2);
 	strm.AppendToBitStream(15, 4);
+	strm.Flush();
 
 	EXPECT_EQ(buffer[0], 0xF3);
 }

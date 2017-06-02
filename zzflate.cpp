@@ -55,7 +55,7 @@ const int lengthCodeTable[] = {
 
 
 
-distanceRecord distanceTable[31]{
+distanceRecord distanceTable[32]{
 	0,0,1,
 	1,0,2,
 	2,0,3,
@@ -86,6 +86,7 @@ distanceRecord distanceTable[31]{
 	27,12, 12289,
 	28,13, 16385,
 	29,13, 24577,
+	30,0, 32768,
 	30,0, 32768,
 };
 
@@ -164,7 +165,6 @@ const int ChooseRunCount(int repeat_count)
 
 void WriteDeflateBlock(EncoderState& state, int final)
 {
-
 	if (state._level == 0)
 	{
 		state.writeUncompressedBlock(final);
