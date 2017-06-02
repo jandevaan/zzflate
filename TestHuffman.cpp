@@ -12,11 +12,24 @@ TEST(ZzFlate, TestDistanceSearch)
 {
 	EncoderState state(0, nullptr);
 
+	int failCount = 0;
+
 	for (int distance = 0; distance < 32768; ++distance)
 	{
 		int a = state.FindDistance(distance);
-	}
+		int b = state.FindDistance2(distance);
 
+		if (a != b)
+		{
+			if (failCount == 0)
+			{
+				std::cout << "Fail " << distance;
+			}
+			failCount++;			
+		} 
+	}
+	 
+	EXPECT_EQ(failCount, 0);
 }
 
 

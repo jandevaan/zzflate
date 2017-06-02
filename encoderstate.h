@@ -70,7 +70,11 @@ struct EncoderState
 		: stream(outputBuffer),
 		_level(level)
 	{
-		comprecords.reserve(3000);
+		if (level == 1)
+		{
+			comprecords.reserve(3000);
+		}
+		
 	}
 
 
@@ -86,9 +90,22 @@ struct EncoderState
 		return -1;
 	}
 
+
+	int FindDistance2(int offset)
+	{
+		int n = 0;
+		n += (distanceTable[n + 16].distanceStart <= offset) << 4;
+		n += (distanceTable[n + 8].distanceStart <= offset) << 3;
+		n += (distanceTable[n + 4].distanceStart <= offset) << 2;
+		n += (distanceTable[n + 2].distanceStart <= offset) << 1;
+		n += (distanceTable[n + 1].distanceStart <= offset);
+
+		return n ;
+	}
+
 	void WriteDistance(outputbitstream& stream, int offset)
 	{
-		auto i = FindDistance(offset);
+		auto i = FindDistance2(offset);
 
 		auto bucket = distanceTable[i];
 		stream.AppendToBitStream(dcodes[bucket.code]);
@@ -395,7 +412,6 @@ struct EncoderState
 
 	void WriteBlockV(CurrentBlockType type, int final)
 	{
-
 		comprecords.clear();
 
 		auto symbolFreqs = std::vector<int>(286,1);
@@ -440,7 +456,7 @@ struct EncoderState
 			}*/
 
 			symbolFrequencies[lengthTable[matchLength].code]++;
-			distanceFrequencies[FindDistance(i - offset)]++;
+			distanceFrequencies[FindDistance2(i - offset)]++;
 			comprecords.push_back({ i - backRefEnd, (unsigned short)(i - offset), (unsigned short)matchLength });
 			i += matchLength - 1;
 			backRefEnd = i + 1;
