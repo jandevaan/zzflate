@@ -92,6 +92,7 @@ distanceRecord distanceTable[31]{
 
 lengthRecord  lengthTable[259];
 
+code  lengthCodes[259];
 
 #include "encoderstate.h"
 
@@ -148,6 +149,8 @@ void buildLengthLookup()
 
 	lengthTable[258] = { 285, 0,0 };
 
+
+
 }
 
 
@@ -161,13 +164,18 @@ const int ChooseRunCount(int repeat_count)
 
 void WriteDeflateBlock(EncoderState& state, int final)
 {
+
 	if (state._level == 0)
 	{
 		state.writeUncompressedBlock(final);
 	}
-	else if (state._level > 0)
+	else if (state._level == 1)
 	{
-		state.WriteBlockV((CurrentBlockType)state._level, final);
+		state.WriteBlockFixedHuff(FixedHuffman, final);
+	}
+	else if (state._level > 1)
+	{
+		state.WriteBlockV(UserDefinedHuffman, final);
 	}
 
 	state.EndBlock();
@@ -189,6 +197,27 @@ void ZzFlateEncode(unsigned char *dest, unsigned long *destLen, const unsigned c
 
 	auto end = source + sourceLen;
 	state.source = source;
+	
+	if (level == 1)
+	{
+		state.codes = huffman::generate(huffman::defaultTableLengths());
+		state.dcodes = std::vector<code>(32);
+		for (int i = 0; i < 32; ++i)
+		{
+			state.dcodes[i] = { 5, (int)huffman::reverse(i, 5) };
+		}
+
+		for (int i = 0; i < 259; ++i)
+		{
+			auto lengthRecord = lengthTable[i];
+			
+			auto code = state.codes[lengthRecord.code]; 
+			state.lcodes[i] = { 
+				code.length + lengthRecord.extraBitLength,
+				(lengthRecord.extraBits << code.length) | code.bits };
+		}
+
+	}
 
 	auto adler = adler32x(source, sourceLen);
 

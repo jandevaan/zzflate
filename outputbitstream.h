@@ -68,9 +68,8 @@ public:
 
 	bool WriteU16(uint16_t value)
 	{
-		assert(_usedBitCount == 0);
-		*_stream++ = value & 0xFF;
-		*_stream++ = value >> 8;
+		AppendToBitStream(0, -_usedBitCount & 0x7);
+		AppendToBitStream(value, 16);
 		return true;
 	}
 
@@ -96,7 +95,7 @@ public:
 	unsigned char* _stream = nullptr;
 	unsigned char* _start = nullptr;
 	
-	uint32_t _bitBuffer = 0;
+	uint64_t _bitBuffer = 0;
 	int _usedBitCount  = 0;
 	
 };

@@ -4,7 +4,7 @@
 namespace
 {
 	
-	unsigned int reverse(register unsigned int x)
+	unsigned int reverse(unsigned int x)
 	{
 		x = (((x & 0xaaaaaaaa) >> 1) | ((x & 0x55555555) << 1));
 		x = (((x & 0xcccccccc) >> 2) | ((x & 0x33333333) << 2));

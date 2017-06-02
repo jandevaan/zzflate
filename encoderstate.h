@@ -71,7 +71,6 @@ struct EncoderState
 		auto bucket = distanceTable[i];
 		stream.AppendToBitStream(dcodes[bucket.code]);
 		stream.AppendToBitStream(offset - bucket.distanceStart, bucket.bits);
-
 	}
 
 	void StartBlock(CurrentBlockType type, int final)
@@ -303,9 +302,9 @@ struct EncoderState
 	const unsigned char* source;
 	size_t length;
 
-	unsigned int CalcHash(int i)
+	unsigned static int CalcHash(const unsigned char * source )
 	{
-		return (source[i] * 0x102u) ^ (source[i + 1] * 0xF00Fu) ^ (source[i + 2] * 0xFFu);
+		return (source[0] * 0x102u) ^ (source[1] * 0xF00Fu) ^ (source[2] * 0xFFu);
 	}
 
 	int matchOffset(unsigned iu, unsigned short oldVal)
@@ -330,12 +329,46 @@ struct EncoderState
 		for (; matchLength < limit; ++matchLength)
 		{
 			if (a[matchLength] != b[matchLength])
-				break;
+				return matchLength;
 		}
 
-		return matchLength;
+		return limit;
 	}
 
+
+	void WriteBlockFixedHuff(CurrentBlockType type, int final)
+	{ 
+		auto pHash = &hashtable[0]; 
+		
+		StartBlock(type, final);
+
+		for (auto i = 0u; i < length; ++i)
+		{
+			auto newHash = CalcHash(source + i) & hashMask;
+			unsigned oldVal = pHash[newHash];
+			pHash[newHash] = i & 0x7FFF;
+			if (oldVal > 0x7FFF)
+			{
+				stream.AppendToBitStream(codes[source[i]]);
+				continue;
+			} 
+			auto offset = matchOffset(i, oldVal);
+
+			int matchLength = countMatches(i, offset);
+
+			if (matchLength < 3)
+			{
+				stream.AppendToBitStream(codes[source[i]]);
+				continue;
+			}
+			stream.AppendToBitStream(lcodes[matchLength]);
+			WriteDistance(stream, i - offset);
+
+			i += matchLength - 1; 
+		}
+		  
+	}
+	 
 	std::vector<compressionRecord> comprecords;
 
 	void WriteBlockV(CurrentBlockType type, int final)
@@ -351,7 +384,7 @@ struct EncoderState
 
 		for (auto i = 0u; i < length; ++i)
 		{
-			auto newHash = CalcHash(i) & hashMask;
+			auto newHash = CalcHash(source + i) & hashMask;
 			unsigned oldVal = pHash[newHash];
 			pHash[newHash] = i & 0x7FFF; 
 			if (oldVal > 0x7FFF)
@@ -359,8 +392,7 @@ struct EncoderState
 				symbolFrequencies[source[i]]++;
 				continue;;
 			}
-
-			  
+  
 			auto offset = matchOffset(i, oldVal);
 			
 			int matchLength = countMatches(i, offset);
@@ -422,7 +454,6 @@ struct EncoderState
 	void writeUncompressedBlock(int final)
 	{
 		StartBlock(Uncompressed, final);
-		stream.Flush();
 		stream.WriteU16(this->length);
 		stream.WriteU16(~this->length);
 
@@ -443,5 +474,6 @@ struct EncoderState
 	outputbitstream stream;
 	std::vector<code> codes;
 	std::vector<code> dcodes;
+	code lcodes[259];
 	int _level;
 };

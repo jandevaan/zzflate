@@ -195,10 +195,10 @@ TEST(ZzxFlatePerf, UserHuffmanPerf)
 
 
 
-TEST(ZzxFlatePerf, UserHuffmanPerf1)
+TEST(ZzxFlatePerf, FixedHuffmanPerf)
 {
 
-	testroundtripperf(bufferUncompressed, 2);
+	testroundtripperf(bufferUncompressed, 1);
 }
 
 
@@ -208,6 +208,11 @@ TEST(ZlibPerf, ZlibCompress1)
 {
 
 	testroundtripperfzlib(bufferUncompressed, 1);
+}
+
+TEST(ZlibPerf, ZlibCompress3)
+{
+	testroundtripperfzlib(bufferUncompressed, 3);
 }
 
 TEST(ZlibPerf, ZlibCompress6)
