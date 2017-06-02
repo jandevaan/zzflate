@@ -5,6 +5,19 @@
 #include <gtest/gtest.h>
 #include "huffman.h"
 #include <numeric>
+#include "encoderstate.h"
+
+
+TEST(ZzFlate, TestDistanceSearch)
+{
+	EncoderState state(0, nullptr);
+
+	for (int distance = 0; distance < 32768; ++distance)
+	{
+		int a = state.FindDistance(distance);
+	}
+
+}
 
 
 TEST(ZzFlate, GenerateHuffman)

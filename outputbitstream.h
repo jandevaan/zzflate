@@ -7,6 +7,8 @@
 
 uint32_t adler32x(const unsigned char *data, size_t len);
 
+
+
 struct code
 {
 	int length;

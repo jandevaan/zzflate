@@ -9,18 +9,11 @@
 #include <numeric>
 
 
-struct lengthRecord
-{
-	short code;
-	char extraBits;
-	char extraBitLength;
-};
-struct distanceRecord
-{
-	int code;
-	int bits;
-	int distanceStart;
-};
+#include "encoderstate.h"
+
+
+lengthRecord  lengthTable[259];
+
 
 const int lengthCodeTable[] = {
 	257,  0,
@@ -55,7 +48,7 @@ const int lengthCodeTable[] = {
 
 
 
-distanceRecord distanceTable[32]{
+const distanceRecord distanceTable[32]{
 	0,0,1,
 	1,0,2,
 	2,0,3,
@@ -89,13 +82,6 @@ distanceRecord distanceTable[32]{
 	30,0, 32768,
 	30,0, 32768,
 };
-
-
-lengthRecord  lengthTable[259];
-
-code  lengthCodes[259];
-
-#include "encoderstate.h"
 
 
 

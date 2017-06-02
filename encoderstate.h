@@ -16,6 +16,28 @@ struct record
 	int id;
 };
 
+
+struct lengthRecord
+{
+	short code;
+	char extraBits;
+	char extraBitLength;
+};
+struct distanceRecord
+{
+	int code;
+	int bits;
+	int distanceStart;
+};
+
+
+
+extern lengthRecord  lengthTable[259];
+
+extern code  lengthCodes[259];
+
+extern const distanceRecord distanceTable[32];
+
 class greater
 {
 public:
@@ -33,7 +55,7 @@ enum CurrentBlockType
 };
  
 
-void WriteLength(outputbitstream& stream, std::vector<code>& codes, int runLength)
+inline void WriteLength(outputbitstream& stream, std::vector<code>& codes, int runLength)
 {
 	auto lengthRecord = lengthTable[runLength];
 	auto code = lengthRecord.code;
