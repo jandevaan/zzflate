@@ -24,6 +24,12 @@ public:
 		_stream++;
 	}
 
+	void write(uint32_t val)
+	{
+		*(uint32_t*)_stream = val;
+		_stream += 4;
+	}
+
 	outputbitstream(unsigned char* stream)		  
 	{		
 		_start = stream;
@@ -46,15 +52,15 @@ public:
 		{
 			assert(false);
 		}
-		_bitBuffer |= bits << _usedBitCount;
+		_bitBuffer |= ((uint64_t)bits) << _usedBitCount;
 
 		_usedBitCount += bitCount;
 
-		while (_usedBitCount >= 8)
+		while (_usedBitCount >= 32)
 		{
-			_usedBitCount -= 8;
-			writebyte(_bitBuffer & 0xFF);
-			_bitBuffer = _bitBuffer >> 8;
+			_usedBitCount -= 32;
+			write((uint32_t)_bitBuffer);
+			_bitBuffer = _bitBuffer >> 32;
 		}
 	}
 
@@ -63,7 +69,15 @@ public:
 		if (_usedBitCount == 0)
 			return;
 
-		AppendToBitStream(0, 8 - _usedBitCount);
+		AppendToBitStream(0, -_usedBitCount & 0x7);
+
+		while (_usedBitCount >= 8)
+		{
+			_usedBitCount -= 8;
+			writebyte(_bitBuffer & 0xFF);
+			_bitBuffer = _bitBuffer >> 8;
+		}
+		
 	}
 
 	bool WriteU16(uint16_t value)
@@ -73,14 +87,21 @@ public:
 		return true;
 	}
 
+
+	void WriteU8(uint8_t value)
+	{
+		AppendToBitStream(0, -_usedBitCount & 0x7);
+		AppendToBitStream(value, 8);		
+	}
+
 	void WriteBigEndianU32(uint32_t value)
 	{
-		assert(_usedBitCount == 0);
-		*_stream++ = value >> 24;
-		*_stream++ = value >> 16;
-		*_stream++ = value >> 8;
-		*_stream++ = value;
+		AppendToBitStream(0, -_usedBitCount & 0x7);
 
+		AppendToBitStream(value >> 24 & 0xFF, 8);
+		AppendToBitStream(value >> 16 & 0xFF, 8);		
+		AppendToBitStream(value >> 8 & 0xFF, 8);
+		AppendToBitStream(value & 0xFF, 8);
 	}
 
 
@@ -89,8 +110,6 @@ public:
 		assert(_usedBitCount == 0);
 		return _stream - _start;
 	}
-
- 
 
 	unsigned char* _stream = nullptr;
 	unsigned char* _start = nullptr;

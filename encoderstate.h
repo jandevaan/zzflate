@@ -456,6 +456,7 @@ struct EncoderState
 		StartBlock(Uncompressed, final);
 		stream.WriteU16(this->length);
 		stream.WriteU16(~this->length);
+		stream.Flush();
 
 		memcpy(stream._stream, source, this->length);
 		stream._stream += this->length;

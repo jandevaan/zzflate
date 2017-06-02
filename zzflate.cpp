@@ -192,8 +192,8 @@ void ZzFlateEncode(unsigned char *dest, unsigned long *destLen, const unsigned c
 	EncoderState state(level, dest);
 
 	auto header = getHeader();
-	state.stream.writebyte(header.CMF);
-	state.stream.writebyte(header.FLG);
+	state.stream.WriteU8(header.CMF);
+	state.stream.WriteU8(header.FLG);
 
 	auto end = source + sourceLen;
 	state.source = source;
@@ -231,9 +231,9 @@ void ZzFlateEncode(unsigned char *dest, unsigned long *destLen, const unsigned c
 
 
 
-	// end of zlib stream (not block!)
-	state.stream.Flush();
+	// end of zlib stream (not block!)	
 	state.stream.WriteBigEndianU32(adler);
+	state.stream.Flush();
 
 	*destLen = (int)state.stream.byteswritten();
 }
