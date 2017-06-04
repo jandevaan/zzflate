@@ -169,7 +169,7 @@ struct EncoderState
 		}
 
 		// cheap hack to prevent excessively long codewords.
-		int limit = symbolcount / (1 << 15);
+		int limit = int(symbolcount / (1 << 15));
 		std::vector<record> records;
 		std::vector<treeItem> tree;
 		for (int i = 0; i < freqsx.size(); ++i)
@@ -208,7 +208,7 @@ struct EncoderState
 
 		std::vector<int> lengthCounts(30, 0);
 		
-		for (int i = tree.size() - 1; i > 0; --i)
+		for (auto i = tree.size() - 1; i != 0; --i)
 		{
 			auto item = tree[i];
 			if (item.right == -1)
@@ -261,7 +261,7 @@ struct EncoderState
 		int offset = 0;
 		for (auto r : vector)
 		{
-			for (int n = 0; n < r.literals; ++n)
+			for (unsigned n = 0; n < r.literals; ++n)
 			{
 				auto value = source[offset + n];
 				stream.AppendToBitStream(codes[value]);
@@ -305,9 +305,9 @@ struct EncoderState
 
 		auto metacodesLengths = calcMetaLengths(symLengths, distLengths); 
 				 
-		stream.AppendToBitStream(symLengths.size() - 257, 5);
-		stream.AppendToBitStream(distLengths.size() - 1, 5); // distance code count
-		stream.AppendToBitStream(metacodesLengths.size() - 4, 4);
+		stream.AppendToBitStream(int32_t(symLengths.size() - 257), 5);
+		stream.AppendToBitStream(int32_t(distLengths.size() - 1), 5); // distance code count
+		stream.AppendToBitStream(int32_t(metacodesLengths.size() - 4), 4);
 
 		for (int i = 0; i < 19; ++i)
 		{
@@ -483,7 +483,7 @@ struct EncoderState
 		
 		}
 
-		WriteRecords(source, comprecords, type, final);
+		WriteRecords(source, comprecords, type, final != 0);
 	}
 
 
@@ -492,8 +492,8 @@ struct EncoderState
 	void writeUncompressedBlock(int final)
 	{
 		StartBlock(Uncompressed, final);
-		stream.WriteU16(this->length);
-		stream.WriteU16(~this->length);
+		stream.WriteU16(int16_t(this->length));
+		stream.WriteU16(int16_t(~this->length));
 		stream.Flush();
 
 		memcpy(stream._stream, source, this->length);

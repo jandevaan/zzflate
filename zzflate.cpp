@@ -209,7 +209,7 @@ void ZzFlateEncode(unsigned char *dest, unsigned long *destLen, const unsigned c
 
 	while (state.source != end)
 	{
-		int bytes = std::min(end - state.source, 65536ll);
+		int64_t bytes = std::min(end - state.source, 65536ll);
 		state.length = bytes;
 		WriteDeflateBlock(state, state.source + bytes == end ? 1 : 0);
 		state.source += bytes;

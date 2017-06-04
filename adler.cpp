@@ -26,5 +26,5 @@ uint32_t adler32x(const unsigned char *data, size_t len)
 	}
 	a = a % MOD_ADLER;	b = b % MOD_ADLER;
 
-	return (b << 16) | a;
+	return uint32_t((b << 16) | a);
 }

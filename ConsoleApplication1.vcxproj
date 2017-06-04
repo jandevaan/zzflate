@@ -180,14 +180,14 @@
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="packages\zlib.greedy.1.2.8.8\build\native\zlib.greedy.targets" Condition="Exists('packages\zlib.greedy.1.2.8.8\build\native\zlib.greedy.targets')" />
     <Import Project="packages\gtest-vc140-static-64.1.1.0\build\native\gtest-vc140-static-64.targets" Condition="Exists('packages\gtest-vc140-static-64.1.1.0\build\native\gtest-vc140-static-64.targets')" />
+    <Import Project="packages\zlib.greedy.1.2.8.8\build\native\zlib.greedy.targets" Condition="Exists('packages\zlib.greedy.1.2.8.8\build\native\zlib.greedy.targets')" />
   </ImportGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
-    <Error Condition="!Exists('packages\zlib.greedy.1.2.8.8\build\native\zlib.greedy.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\zlib.greedy.1.2.8.8\build\native\zlib.greedy.targets'))" />
     <Error Condition="!Exists('packages\gtest-vc140-static-64.1.1.0\build\native\gtest-vc140-static-64.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\gtest-vc140-static-64.1.1.0\build\native\gtest-vc140-static-64.targets'))" />
+    <Error Condition="!Exists('packages\zlib.greedy.1.2.8.8\build\native\zlib.greedy.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\zlib.greedy.1.2.8.8\build\native\zlib.greedy.targets'))" />
   </Target>
 </Project>
