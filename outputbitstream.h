@@ -35,7 +35,7 @@ public:
 		_stream = stream;
 	}
 
-	void AppendToBitStream(code code)
+	__forceinline void AppendToBitStream(code code)
 	{
 		if(code.length == 0)
 		{
@@ -45,7 +45,7 @@ public:
 	}
 
 
-	void AppendToBitStream(int32_t bits, int32_t bitCount)
+	__forceinline void AppendToBitStream(int32_t bits, int32_t bitCount)
 	{
 		if(((~0 << bitCount) & bits) != 0)
 		{
@@ -55,7 +55,7 @@ public:
 
 		_usedBitCount += bitCount;
 
-		while (_usedBitCount >= 32)
+		if (_usedBitCount >= 32)
 		{
 			_usedBitCount -= 32;
 			write((uint32_t)_bitBuffer);

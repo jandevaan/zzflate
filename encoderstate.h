@@ -91,7 +91,7 @@ struct EncoderState
 	}
 
 
-	int FindDistance2(int offset)
+	__forceinline int FindDistance2(int offset)
 	{
 		int n = 0;
 		n += (distanceTable[n + 16].distanceStart <= offset) << 4;
@@ -341,7 +341,7 @@ struct EncoderState
 	const unsigned char* source;
 	size_t length;
 
-	unsigned static int CalcHash(const unsigned char * source )
+	static unsigned int CalcHash(const unsigned char * source )
 	{
 		return (source[0] * 0x102u) ^ (source[1] * 0xF00Fu) ^ (source[2] * 0xFFu);
 	}
@@ -357,14 +357,14 @@ struct EncoderState
 
 	}
 
-    int countMatches(int i, int offset)
+    __forceinline  int countMatches(int i, int offset)
 	{
 		auto a = source + i;
 		auto b = source + offset;
 
 		int limit = std::min(258, (int)(length - i));
 		int matchLength = 0;
-		
+
 		for (; matchLength < limit; ++matchLength)
 		{
 			if (a[matchLength] != b[matchLength])
@@ -373,6 +373,35 @@ struct EncoderState
 
 		return limit;
 	}
+
+
+	//	
+	//	auto wpa = (uint32_t*)a;
+	//	auto wpb = (uint32_t*)b;
+
+	//	int matchLength = 0;      // +(diff == 0);
+
+	//	while (matchLength <= limit - 4)
+	//	{
+	//		auto diff = (*wpa) ^ (*wpb);
+
+	//		if (diff != 0)
+	//		{
+	//			int offset2 = 2 * ((diff & 0xFFFF) == 0);
+	//			diff = diff | (diff >> 16);
+
+	//			int offset1 = ((diff & 0xFF) ==0 );
+
+	//			return matchLength + offset2 + offset1;
+	//		}
+	//		
+	//		matchLength += 4;
+	//		wpa++;
+	//		wpb++;
+	//	}
+	//	 
+	//	return limit;
+	//}
 
 
 	void WriteBlockFixedHuff(CurrentBlockType type, int final)
@@ -440,21 +469,7 @@ struct EncoderState
 				symbolFrequencies[source[i]]++;
 				continue;
 			}
-			 
-		/*	auto newHash2 = CalcHash(i + 1) % hashMask;
-			unsigned short old_val2 = pHash[newHash2];
-			if (old_val2 >= 0)
-			{
-				auto offset2 = matchOffset(i + 1, old_val2);
-				int matchLength2 = countMatches(i + 1, offset2);
-
-				if (matchLength2 > matchLength)
-				{
-					symbolFrequencies[source[i]]++;
-					continue;
-				}
-			}*/
-
+	
 			symbolFrequencies[lengthTable[matchLength].code]++;
 			distanceFrequencies[FindDistance2(i - offset)]++;
 			comprecords.push_back({ i - backRefEnd, (unsigned short)(i - offset), (unsigned short)matchLength });

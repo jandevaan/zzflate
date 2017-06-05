@@ -79,11 +79,12 @@ int uncompress(unsigned char *dest, size_t *destLen, const unsigned char *source
 		err == Z_BUF_ERROR && left + stream.avail_out ? Z_DATA_ERROR :
 		err;
 }
+std::vector<unsigned char> bufferCompressed = std::vector<unsigned char>(1500000);
 
 int testroundtripperf(std::vector<unsigned char>& bufferUncompressed, int compression)
 { 
 	auto testSize = bufferUncompressed.size();
-	auto  bufferCompressed = std::vector<unsigned char>(testSize * 3 / 2 + 5000);
+	
 	uLongf comp_len;
 
 	for (int i = 0; i < 10; ++i)
@@ -98,8 +99,7 @@ int testroundtripperf(std::vector<unsigned char>& bufferUncompressed, int compre
 int testroundtripperfzlib(std::vector<unsigned char>& bufferUncompressed, int compression)
 {
 	uLong source_len = bufferUncompressed.size();
-	auto testSize = source_len;
-	auto  bufferCompressed = std::vector<unsigned char>(testSize * 3 / 2 + 5000);
+	auto testSize = source_len; 
 	uLongf comp_len;
 
 	for (int i = 0; i < 10; ++i)
@@ -195,6 +195,12 @@ TEST(ZzxFlatePerf, UserHuffmanPerf)
 
 
 TEST(ZzxFlatePerf, FixedHuffmanPerf)
+{
+	testroundtripperf(bufferUncompressed, 1);
+}
+
+
+TEST(ZzxFlatePerf, FixedHuffmanPerf2)
 {
 	testroundtripperf(bufferUncompressed, 1);
 }
