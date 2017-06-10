@@ -21,12 +21,13 @@ std::vector<unsigned char> readFile(std::string name)
 	auto vec = std::vector<unsigned char>(length);
 
 	file.read((char*)&vec.front(), length);
-
+//	vec.resize(vec.size() / 5);
 	return vec;
 }
 
 
-int uncompress(unsigned char *dest, size_t *destLen, const unsigned char *source, size_t sourceLen) {
+int uncompress(unsigned char *dest, size_t *destLen, const unsigned char *source, size_t sourceLen) 
+{
 	z_stream stream = {};
 	int err;
 	const unsigned int max = (unsigned int)0 - 1;
@@ -152,7 +153,7 @@ int main(int ac, char* av[])
 
 namespace
 {
-	std::vector<unsigned char> bufferUncompressed = readFile("e:\\tools\\ADInsight.exe");
+	std::vector<unsigned char> bufferUncompressed = readFile("e:\\tools\\disk2vhd.exe");
 }
 
 

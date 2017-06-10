@@ -167,6 +167,26 @@ void WriteDeflateBlock(EncoderState& state, int final)
 	state.EndBlock();
 }
 
+void InitFixedHuffman(EncoderState& state)
+{
+	state.codes = huffman::generate(huffman::defaultTableLengths());
+	state.dcodes = std::vector<code>(32);
+	for (int i = 0; i < 32; ++i)
+	{
+		state.dcodes[i] = { 5, (int)huffman::reverse(i, 5) };
+	}
+
+	for (int i = 0; i < 259; ++i)
+	{
+		auto lengthRecord = lengthTable[i];
+			
+		auto code = state.codes[lengthRecord.code]; 
+		state.lcodes[i] = { 
+			code.length + lengthRecord.extraBitLength,
+			(lengthRecord.extraBits << code.length) | code.bits };
+	}
+}
+
 void ZzFlateEncode(unsigned char *dest, unsigned long *destLen, const unsigned char *source, size_t sourceLen, int level)
 {
 	if (level < 0 || level > 2)
@@ -186,23 +206,7 @@ void ZzFlateEncode(unsigned char *dest, unsigned long *destLen, const unsigned c
 	
 	if (level == 1)
 	{
-		state.codes = huffman::generate(huffman::defaultTableLengths());
-		state.dcodes = std::vector<code>(32);
-		for (int i = 0; i < 32; ++i)
-		{
-			state.dcodes[i] = { 5, (int)huffman::reverse(i, 5) };
-		}
-
-		for (int i = 0; i < 259; ++i)
-		{
-			auto lengthRecord = lengthTable[i];
-			
-			auto code = state.codes[lengthRecord.code]; 
-			state.lcodes[i] = { 
-				code.length + lengthRecord.extraBitLength,
-				(lengthRecord.extraBits << code.length) | code.bits };
-		}
-
+		InitFixedHuffman(state);
 	}
 
 	auto adler = adler32x(source, sourceLen);
@@ -214,8 +218,7 @@ void ZzFlateEncode(unsigned char *dest, unsigned long *destLen, const unsigned c
 		WriteDeflateBlock(state, state.source + bytes == end ? 1 : 0);
 		state.source += bytes;
 	}
-
-
+	 
 
 	// end of zlib stream (not block!)	
 	state.stream.WriteBigEndianU32(adler);
