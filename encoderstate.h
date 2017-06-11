@@ -430,7 +430,7 @@ struct EncoderState
 
 		int matchLength = 0;
 
-		/*if (length - i > 4)
+		if (length - i >= 4)
 		{
 			auto delta = *(uint32_t*)a ^ *(uint32_t*)b;
 
@@ -438,7 +438,7 @@ struct EncoderState
 				return (delta << 8 == 0) ? 3 : 0;
 
 			matchLength = 4;
-		}*/
+		}
 		int limit = std::min(258, (int)(length - i));
 		 
 		for (; matchLength < limit; ++matchLength)
