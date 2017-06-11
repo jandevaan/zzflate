@@ -146,11 +146,9 @@ struct EncoderState
 		_type = type;		
 	}
 	 
-
-	
 	struct compressionRecord
 	{
-		 int literals;
+		int literals;
 		unsigned short backoffset;
 		unsigned short length;
 	};
@@ -409,7 +407,7 @@ struct EncoderState
 
 	static unsigned int CalcHash(const unsigned char * source )
 	{
-		return (source[0] * 0x102u) ^ (source[1] * 0xF00Fu) ^ (source[2] * 0xFFu);
+		return (source[0] * 0x102u) ^ (source[1] * 0xF004u) ^ (source[2] * 0xFFu);
 	}
 
 	//int matchOffset(unsigned iu, unsigned short oldVal)
@@ -430,7 +428,9 @@ struct EncoderState
 
 		int matchLength = 0;
 
-		if (length - i >= 4)
+		int maxLength = length - i;
+
+		if (maxLength >= 4)
 		{
 			auto delta = *(uint32_t*)a ^ *(uint32_t*)b;
 
@@ -439,15 +439,19 @@ struct EncoderState
 
 			matchLength = 4;
 		}
-		int limit = std::min(258, (int)(length - i));
+		
+		if (maxLength > 258)
+		{
+			maxLength = 258;
+		}
 		 
-		for (; matchLength < limit; ++matchLength)
+		for (; matchLength < maxLength; ++matchLength)
 		{
 			if (a[matchLength] != b[matchLength])
 				return matchLength;
 		}
 
-		return limit;
+		return maxLength;
 	}
 
 
@@ -489,7 +493,6 @@ struct EncoderState
 	void WriteBlockFixedHuff(int final)
 	{  
 		StartBlock(FixedHuffman, final);
-
 		
 		for (int i = 0; i < length; ++i)
 		{
@@ -532,37 +535,27 @@ struct EncoderState
 		auto distanceFrequencies = std::vector<int>(30, 1);		
 		int backRefEnd = 0;	
 
-		for (auto i = 0; i < length; ++i)
+		for (int i = 0; i < length; ++i)
 		{
 			auto newHash = CalcHash(source + i) & hashMask;
 			int offset = hashtable[newHash];
 			hashtable[newHash] = i;
 			 
-			if (offset <= i - 32768)
+			if (i - 32768 < offset)
 			{
-				symbolFreqs[source[i]]++;
-				continue;;
-			}
+				int matchLength = countMatches(i, offset);
 
-			if (offset >=i)
-			{
-				assert(false);
+				if (matchLength >= 3)
+				{
+					symbolFreqs[lengthTable[matchLength].code]++;
+					comprecords.push_back({ (int)(i - backRefEnd), (unsigned short)(i - offset), (unsigned short)matchLength });
+					i += matchLength - 1;
+					backRefEnd = i + 1;
+					continue;
+				}
 			}
-  
 			
-			int matchLength = countMatches(i, offset);
-		 
-			if (matchLength <3)
-			{
-				symbolFreqs[source[i]]++;
-				continue;
-			}
-	
-			symbolFreqs[lengthTable[matchLength].code]++;
-			//distanceFrequencies[FindDistance2(i - offset)]++;
-			comprecords.push_back({ i - backRefEnd, (unsigned short)(i - offset), (unsigned short)matchLength });
-			i += matchLength - 1;
-			backRefEnd = i + 1;
+			symbolFreqs[source[i]]++;
 		}
 
 		FixHashTable();

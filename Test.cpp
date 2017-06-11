@@ -7,6 +7,7 @@
 #include <zlib.h>
 #include <fstream>
 #include "zzflate.h"
+#include <chrono>
 
 
 std::vector<unsigned char> readFile(std::string name)
@@ -88,11 +89,26 @@ int testroundtripperf(std::vector<unsigned char>& bufferUncompressed, int compre
 	
 	uLongf comp_len;
 
+	std::chrono::steady_clock::time_point times[11];
+
+	times[0] = std::chrono::high_resolution_clock::now();
+	
 	for (int i = 0; i < 10; ++i)
 	{
+		 
 		comp_len = (uLongf)bufferCompressed.size();
 		ZzFlateEncode(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
+		times[i + 1] = std::chrono::high_resolution_clock::now();
 	}
+
+	
+
+	for(int i = 0; i < 10; ++i)
+	{
+		auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(times[i + 1] - times[i]);
+		std::cout << microseconds.count() << "µs\n";
+	}
+
 	return 0;
 }
 
@@ -153,7 +169,7 @@ int main(int ac, char* av[])
 
 namespace
 {
-	std::vector<unsigned char> bufferUncompressed = readFile("e:\\tools\\disk2vhd.exe");
+	std::vector<unsigned char> bufferUncompressed = readFile("e:\\tools\\adinsight.exe");
 }
 
 
