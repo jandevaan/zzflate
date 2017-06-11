@@ -4,13 +4,14 @@
 #include <cstdint>
 #include <cassert>
 
-uint32_t adler32x(const unsigned char *data, size_t len);
+uint32_t adler32x(uint32_t startValue, const unsigned char *data, size_t len);
 
 struct code
 {
 	int length;
-	int bits;
+	unsigned int bits;
 };
+
 
 class outputbitstream
 { 

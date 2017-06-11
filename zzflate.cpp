@@ -157,35 +157,16 @@ void WriteDeflateBlock(EncoderState& state, int final)
 	}
 	else if (state._level == 1)
 	{
-		state.WriteBlockFixedHuff(FixedHuffman, final);
+		state.WriteBlockFixedHuff(final);
 	}
 	else if (state._level > 1)
 	{
-		state.WriteBlockV(UserDefinedHuffman, final);
+		state.WriteBlockUserHuffman(UserDefinedHuffman, final);
 	}
 
 	state.EndBlock();
 }
 
-void InitFixedHuffman(EncoderState& state)
-{
-	state.codes = huffman::generate(huffman::defaultTableLengths());
-	state.dcodes = std::vector<code>(32);
-	for (int i = 0; i < 32; ++i)
-	{
-		state.dcodes[i] = { 5, (int)huffman::reverse(i, 5) };
-	}
-
-	for (int i = 0; i < 259; ++i)
-	{
-		auto lengthRecord = lengthTable[i];
-			
-		auto code = state.codes[lengthRecord.code]; 
-		state.lcodes[i] = { 
-			code.length + lengthRecord.extraBitLength,
-			(lengthRecord.extraBits << code.length) | code.bits };
-	}
-}
 
 void ZzFlateEncode(unsigned char *dest, unsigned long *destLen, const unsigned char *source, size_t sourceLen, int level)
 {
@@ -203,19 +184,16 @@ void ZzFlateEncode(unsigned char *dest, unsigned long *destLen, const unsigned c
 
 	auto end = source + sourceLen;
 	state.source = source;
-	
-	if (level == 1)
-	{
-		InitFixedHuffman(state);
-	}
 
-	auto adler = adler32x(source, sourceLen);
+	uint32_t adler = 1; 
 
 	while (state.source != end)
 	{
 		int64_t bytes = std::min(end - state.source, 65536ll);
 		state.length = bytes;
+		adler = adler32x(adler, state.source, bytes);
 		WriteDeflateBlock(state, state.source + bytes == end ? 1 : 0);
+		
 		state.source += bytes;
 	}
 	 

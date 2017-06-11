@@ -70,11 +70,15 @@ struct EncoderState
 		: stream(outputBuffer),
 		_level(level)
 	{
+		
 		if (level == 1)
 		{
-			comprecords.reserve(3000);
+			InitFixedHuffman();
 		}
-		
+		else if (level == 2)
+		{
+			comprecords.reserve(11000);
+		}
 	}
 
 
@@ -105,6 +109,26 @@ struct EncoderState
 			assert(false);
 		}
 		return n ;
+	}
+
+	void InitFixedHuffman()
+	{
+		codes = huffman::generate(huffman::defaultTableLengths());
+		dcodes = std::vector<code>(32);
+		for (int i = 0; i < 32; ++i)
+		{
+			dcodes[i] = { 5, (unsigned short)huffman::reverse(i, 5) };
+		}
+
+		for (int i = 0; i < 259; ++i)
+		{
+			auto lengthRecord = lengthTable[i];
+
+			auto code = codes[lengthRecord.code];
+			lcodes[i] = {
+				code.length + lengthRecord.extraBitLength,
+				(lengthRecord.extraBits << code.length) | (unsigned int)code.bits };
+		}
 	}
 
 	void WriteDistance(outputbitstream& stream, int offset)
@@ -261,7 +285,6 @@ struct EncoderState
 				if (codeSpaceSize >= 0)
 					break;
 			}
-			
 
 		}
 
@@ -391,16 +414,16 @@ struct EncoderState
 		return (source[0] * 0x102u) ^ (source[1] * 0xF00Fu) ^ (source[2] * 0xFFu);
 	}
 
-	int matchOffset(unsigned iu, unsigned short oldVal)
-	{ 
-		int i = iu;
-		auto offset =  (i & ~0x7FFF) + oldVal;
-		
-		unsigned val = offset >= i;
+	//int matchOffset(unsigned iu, unsigned short oldVal)
+	//{ 
+	//	int i = iu;
+	//	auto offset =  (i & ~0x7FFF) + oldVal;
+	//	
+	//	unsigned val = offset >= i;
 
-		return offset - (val << 15);
-		
-	}
+	//	return offset - (val << 15);
+	//	
+	//}
 
     __forceinline  int countMatches(int i, int offset)
 	{
@@ -465,86 +488,79 @@ struct EncoderState
 		}
 	}
 
-	void WriteBlockFixedHuff(CurrentBlockType type, int final)
-	{ 
-		auto pHash = &hashtable[0]; 
+	void WriteBlockFixedHuff(int final)
+	{  
+		StartBlock(FixedHuffman, final);
+
 		
-		StartBlock(type, final);
-
-		int backRefEnd;
-
-		for (auto i = 0; i < length; ++i)
+		for (int i = 0; i < length; ++i)
 		{
-			auto newHash = CalcHash(source + i) & hashMask;
-			int offset = pHash[newHash];
-			pHash[newHash] = i;
-			if (i - offset >= 32768)
+			auto sourcePtr = source + i;
+			auto newHash = CalcHash(sourcePtr) & hashMask;
+			int offset = hashtable[newHash];
+			hashtable[newHash] = i;
+			if (i - offset < 32768)
 			{
-				stream.AppendToBitStream(codes[source[i]]);
-				continue;
+				int matchLength = countMatches(i, offset);
+
+				if (matchLength >= 3)
+				{
+					stream.AppendToBitStream(lcodes[matchLength].bits, lcodes[matchLength].length);
+					WriteDistance(stream, i - offset);
+
+					i += matchLength - 1;
+					continue;
+				}
 			}
-
-			int matchLength = countMatches(i, offset);
-
-			if (matchLength < 3)
-			{
-				stream.AppendToBitStream(codes[source[i]]);
-				continue;
-			}
-			stream.AppendToBitStream(lcodes[matchLength]);
-			WriteDistance(stream, i - offset);
-
-			i += matchLength - 1; 
-			backRefEnd = i + 1;
+			
+			stream.AppendToBitStream(codes[*sourcePtr]);
 		}
 
 		FixHashTable();
 
-		comprecords.push_back({ (int)(length - backRefEnd), 0,0 });
-
+	 
 
 	}
 	 
 	std::vector<compressionRecord> comprecords;
 
-	void WriteBlockV(CurrentBlockType type, int final)
+	void WriteBlockUserHuffman(CurrentBlockType type, int final)
 	{
 		comprecords.clear();
 
 		auto symbolFreqs = std::vector<int>(286,0);
-		auto symbolFrequencies = &symbolFreqs[0];
-		auto distanceFrequencies = std::vector<int>(30, 0);
-		auto pHash = &hashtable[0];
+		
+		auto distanceFrequencies = std::vector<int>(30, 1);		
 		int backRefEnd = 0;	
 
 		for (auto i = 0; i < length; ++i)
 		{
 			auto newHash = CalcHash(source + i) & hashMask;
-			int oldVal = pHash[newHash];
-			pHash[newHash] = i; 
-			if (oldVal <= i - 32768)
+			int offset = hashtable[newHash];
+			hashtable[newHash] = i;
+			 
+			if (offset <= i - 32768)
 			{
-				symbolFrequencies[source[i]]++;
+				symbolFreqs[source[i]]++;
 				continue;;
 			}
 
-			if (oldVal >=i)
+			if (offset >=i)
 			{
 				assert(false);
 			}
   
-			auto offset = oldVal;
 			
 			int matchLength = countMatches(i, offset);
 		 
 			if (matchLength <3)
 			{
-				symbolFrequencies[source[i]]++;
+				symbolFreqs[source[i]]++;
 				continue;
 			}
 	
-			symbolFrequencies[lengthTable[matchLength].code]++;
-			distanceFrequencies[FindDistance2(i - offset)]++;
+			symbolFreqs[lengthTable[matchLength].code]++;
+			//distanceFrequencies[FindDistance2(i - offset)]++;
 			comprecords.push_back({ i - backRefEnd, (unsigned short)(i - offset), (unsigned short)matchLength });
 			i += matchLength - 1;
 			backRefEnd = i + 1;
@@ -554,7 +570,7 @@ struct EncoderState
 		 
 		comprecords.push_back({(int) (length - backRefEnd), 0,0});
 
-		symbolFrequencies[256]++;
+		symbolFreqs[256]++;
 		
 		StartBlock(type, final);
 

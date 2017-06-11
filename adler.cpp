@@ -1,9 +1,9 @@
 ﻿#include <cstdint>
 const int MOD_ADLER = 65521;
 
-uint32_t adler32x(const unsigned char *data, size_t len)
+uint32_t adler32x(uint32_t startValue, const unsigned char *data, size_t len)
 {
-	uint64_t a = 1, b = 0;
+	uint64_t a = (startValue & 0xFFFF), b = startValue >> 16;
 	size_t index = 0;
 
 	/* Process each byte of the data in order */

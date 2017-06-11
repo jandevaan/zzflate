@@ -102,7 +102,7 @@ std::vector<code> huffman::generate(const std::vector<int>& lengths)
 		{
 			break;
 		}
-		codes[n] = { len, (int)reversed };
+		codes[n] = { (short)len, (unsigned short)reversed };
 		next_code[len]++;
 	}
 
