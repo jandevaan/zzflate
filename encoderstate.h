@@ -133,9 +133,7 @@ struct EncoderState
 
 	void WriteDistance(outputbitstream& stream, int offset)
 	{
-		auto i = FindDistance2(offset);
-
-		auto bucket = distanceTable[i];
+		auto bucket = distanceTable[FindDistance2(offset)];
 		stream.AppendToBitStream(dcodes[bucket.code]);
 		stream.AppendToBitStream(offset - bucket.distanceStart, bucket.bits);
 	}
@@ -512,8 +510,9 @@ struct EncoderState
 					continue;
 				}
 			}
-			
-			stream.AppendToBitStream(codes[*sourcePtr]);
+
+			auto code = codes[*sourcePtr];
+			stream.AppendToBitStream(code.bits, code.length);
 		}
 
 		FixHashTable();

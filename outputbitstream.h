@@ -16,19 +16,9 @@ struct code
 class outputbitstream
 { 
 	outputbitstream(const outputbitstream& strm) = delete;
+
+
 public:
-
-	void writebyte(unsigned char b)
-	{
-		*_stream = b;
-		_stream++;
-	}
-
-	void write(uint32_t val)
-	{
-		*(uint32_t*)_stream = val;
-		_stream += 4;
-	}
 
 	outputbitstream(unsigned char* stream)		  
 	{		
@@ -46,13 +36,13 @@ public:
 	}
 
 
-	__forceinline void AppendToBitStream(int32_t bits, int32_t bitCount)
+	__forceinline void AppendToBitStream(uint64_t bits, int32_t bitCount)
 	{
-		if(((~0 << bitCount) & bits) != 0)
-		{
-			assert(false);
-		}
-		_bitBuffer |= ((uint64_t)bits) << _usedBitCount;
+		//if(((~0 << bitCount) & bits) != 0)
+		//{
+		//	assert(false);
+		//}
+		_bitBuffer |= bits << _usedBitCount;
 
 		_usedBitCount += bitCount;
 
@@ -112,6 +102,22 @@ public:
 	}
 
 	unsigned char* _stream = nullptr;
+private:
+
+	void writebyte(unsigned char b)
+	{
+		*_stream = b;
+		_stream++;
+	}
+
+	void write(uint32_t val)
+	{
+		*(uint32_t*)_stream = val;
+		_stream += 4;
+	}
+
+
+	
 	unsigned char* _start = nullptr;
 	
 	uint64_t _bitBuffer = 0;
