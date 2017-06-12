@@ -54,18 +54,30 @@ enum CurrentBlockType
 	UserDefinedHuffman
 };
  
-
-inline void WriteLength(outputbitstream& stream, std::vector<code>& codes, int runLength)
+struct compressionRecord
 {
-	auto lengthRecord = lengthTable[runLength];
-	auto code = lengthRecord.code;
+	int literals;
+	unsigned short backoffset;
+	unsigned short length;
+};
 
-	stream.AppendToBitStream(codes[code]);
-	stream.AppendToBitStream(lengthRecord.extraBits, lengthRecord.extraBitLength);
-}
 
 struct EncoderState
 {
+	outputbitstream stream;
+
+	const unsigned char* source;
+	size_t length;
+
+	CurrentBlockType _type;
+	int _level;
+
+	std::vector<int> hashtable = std::vector<int>(hashSize, -100000);
+	std::vector<code> codes;
+	std::vector<code> dcodes;
+	code lcodes[259];
+	std::vector<compressionRecord> comprecords;
+
 	EncoderState(int level, unsigned char* outputBuffer)
 		: stream(outputBuffer),
 		_level(level)
@@ -95,7 +107,7 @@ struct EncoderState
 	}
 
 
-	__forceinline int FindDistance2(int offset)
+	int FindDistance2(int offset)
 	{
 		int n = 0;
 		n += (distanceTable[n + 16].distanceStart <= offset) << 4;
@@ -131,12 +143,22 @@ struct EncoderState
 		}
 	}
 
-	void WriteDistance(outputbitstream& stream, int offset)
+	void WriteDistance(int offset)
 	{
 		auto bucket = distanceTable[FindDistance2(offset)];
 		stream.AppendToBitStream(dcodes[bucket.code]);
 		stream.AppendToBitStream(offset - bucket.distanceStart, bucket.bits);
 	}
+
+	void WriteLength(int runLength)
+	{
+		auto lengthRecord = lengthTable[runLength];
+		auto code = lengthRecord.code;
+
+		stream.AppendToBitStream(codes[code]);
+		stream.AppendToBitStream(lengthRecord.extraBits, lengthRecord.extraBitLength);
+	}
+
 
 	void StartBlock(CurrentBlockType type, int final)
 	{
@@ -146,13 +168,7 @@ struct EncoderState
 		_type = type;		
 	}
 	 
-	struct compressionRecord
-	{
-		int literals;
-		unsigned short backoffset;
-		unsigned short length;
-	};
-
+	
 
 	struct treeItem
 	{
@@ -333,8 +349,8 @@ struct EncoderState
 
 			if (r.length != 0)
 			{
-				WriteLength(stream, codes, r.length);
-				WriteDistance(stream, r.backoffset);
+				WriteLength(r.length);
+				WriteDistance(r.backoffset);
 			}
 
 			offset += r.literals + r.length;
@@ -399,11 +415,6 @@ struct EncoderState
 		codes = huffman::generate(symLengths);
 		dcodes = huffman::generate(distLengths);
 	}
-
-	std::vector<int> hashtable = std::vector<int>(hashSize,-100000);
-
-	const unsigned char* source;
-	size_t length;
 
 	static unsigned int CalcHash(const unsigned char * source )
 	{
@@ -490,7 +501,7 @@ struct EncoderState
 		}
 	}
 
-	void WriteBlockFixedHuff(int final)
+	int WriteBlockFixedHuff(int final)
 	{  
 		StartBlock(FixedHuffman, final);
 		
@@ -507,7 +518,7 @@ struct EncoderState
 				if (matchLength >= 3)
 				{
 					stream.AppendToBitStream(lcodes[matchLength].bits, lcodes[matchLength].length);
-					WriteDistance(stream, i - offset);
+					WriteDistance( i - offset);
 
 					i += matchLength - 1;
 					continue;
@@ -520,13 +531,13 @@ struct EncoderState
 
 		FixHashTable();
 
-	 
+		stream.AppendToBitStream(codes[256]);
 
+		return length;
 	}
-	 
-	std::vector<compressionRecord> comprecords;
 
-	void WriteBlockUserHuffman(CurrentBlockType type, int final)
+
+	int WriteBlockUserHuffman(CurrentBlockType type, int final)
 	{
 		comprecords.clear();
 
@@ -569,12 +580,14 @@ struct EncoderState
 		prepareCodes(symbolFreqs, distanceFrequencies);
 		
 		WriteRecords(source, comprecords, type, final != 0);
+
+		stream.AppendToBitStream(codes[256]);
+
+		return length;
 	}
 
 
-
-
-	void writeUncompressedBlock(int final)
+	size_t writeUncompressedBlock(int final)
 	{
 		StartBlock(Uncompressed, final);
 		stream.WriteU16(int16_t(this->length));
@@ -584,20 +597,8 @@ struct EncoderState
 		memcpy(stream._stream, source, this->length);
 		stream._stream += this->length;
 
+		return this->length;
 	}
-
-	void EndBlock()
-	{
-		if (_type != Uncompressed)
-		{
-			stream.AppendToBitStream(codes[256]);
-		}
-	}
-
-	CurrentBlockType _type;
-	outputbitstream stream;
-	std::vector<code> codes;
-	std::vector<code> dcodes;
-	code lcodes[259];
-	int _level;
+ 
+	
 };

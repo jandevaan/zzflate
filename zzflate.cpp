@@ -149,22 +149,22 @@ const int ChooseRunCount(int repeat_count)
 	return std::min(repeat_count - 3, 258);
 }
 
-void WriteDeflateBlock(EncoderState& state, int final)
+int WriteDeflateBlock(EncoderState& state, int final)
 {
 	if (state._level == 0)
 	{
-		state.writeUncompressedBlock(final);
+		return state.writeUncompressedBlock(final);
 	}
 	else if (state._level == 1)
 	{
-		state.WriteBlockFixedHuff(final);
+		return state.WriteBlockFixedHuff(final);
 	}
 	else if (state._level > 1)
 	{
-		state.WriteBlockUserHuffman(UserDefinedHuffman, final);
+		return state.WriteBlockUserHuffman(UserDefinedHuffman, final);
 	}
 
-	state.EndBlock();
+	return -1;
 }
 
 
@@ -191,10 +191,11 @@ void ZzFlateEncode(unsigned char *dest, unsigned long *destLen, const unsigned c
 	{
 		int64_t bytes = std::min(end - state.source, 65536ll);
 		state.length = bytes;
-		adler = adler32x(adler, state.source, bytes);
-		WriteDeflateBlock(state, state.source + bytes == end ? 1 : 0);
 		
-		state.source += bytes;
+		auto bytesWritten = WriteDeflateBlock(state, state.source + bytes == end ? 1 : 0);
+		adler = adler32x(adler, state.source, bytesWritten);
+		state.source += bytesWritten;
+
 	}
 	 
 

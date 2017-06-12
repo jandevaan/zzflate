@@ -106,7 +106,7 @@ int testroundtripperf(std::vector<unsigned char>& bufferUncompressed, int compre
 	for(int i = 0; i < 10; ++i)
 	{
 		auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(times[i + 1] - times[i]);
-		std::cout << microseconds.count() << "µs\n";
+		std::cout << microseconds.count() << " µs\n";
 	}
 
 	return 0;
