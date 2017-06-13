@@ -89,7 +89,7 @@ struct EncoderState
 		}
 		else if (level == 2)
 		{
-			comprecords.reserve(11000);
+			comprecords.reserve(10000);
 		}
 	}
 
@@ -305,6 +305,9 @@ struct EncoderState
 	}
 
 
+
+
+
 	int FindBackRef(int index, int end, int* offset)
 	{
 		if (index == 0)
@@ -501,8 +504,10 @@ struct EncoderState
 		}
 	}
 
-	int WriteBlockFixedHuff(int final)
+	int WriteBlockFixedHuff(int byteCount, int final)
 	{  
+		length = byteCount;
+
 		StartBlock(FixedHuffman, final);
 		
 		for (int i = 0; i < length; ++i)
@@ -537,8 +542,10 @@ struct EncoderState
 	}
 
 
-	int WriteBlockUserHuffman(CurrentBlockType type, int final)
+	int WriteBlockUserHuffman(int byteCount, int final)
 	{
+	    
+		length = std::min(85536, byteCount);
 		comprecords.clear();
 
 		auto symbolFreqs = std::vector<int>(286,0);
@@ -560,8 +567,17 @@ struct EncoderState
 				{
 					symbolFreqs[lengthTable[matchLength].code]++;
 					comprecords.push_back({ (int)(i - backRefEnd), (unsigned short)(i - offset), (unsigned short)matchLength });
+
 					i += matchLength - 1;
 					backRefEnd = i + 1;
+
+					/*if (comprecords.size() == comprecords.capacity())
+					{
+						length = i + 1;
+						break;
+					}*/
+						
+
 					continue;
 				}
 			}
@@ -570,16 +586,21 @@ struct EncoderState
 		}
 
 		FixHashTable();
-		 
-		comprecords.push_back({(int) (length - backRefEnd), 0,0});
-
+		   
 		symbolFreqs[256]++;
 		
-		StartBlock(type, final);
+		if (length< byteCount)
+		{
+			final = 0;
+		}
+		
+		comprecords.push_back({ (int)(length - backRefEnd), 0,0 });
+
+		StartBlock(UserDefinedHuffman, final);
 
 		prepareCodes(symbolFreqs, distanceFrequencies);
 		
-		WriteRecords(source, comprecords, type, final != 0);
+		WriteRecords(source, comprecords, UserDefinedHuffman, final != 0);
 
 		stream.AppendToBitStream(codes[256]);
 
@@ -587,8 +608,9 @@ struct EncoderState
 	}
 
 
-	size_t writeUncompressedBlock(int final)
+	size_t writeUncompressedBlock(int byteCount, int final)	
 	{
+		length = byteCount;
 		StartBlock(Uncompressed, final);
 		stream.WriteU16(int16_t(this->length));
 		stream.WriteU16(int16_t(~this->length));
@@ -600,5 +622,36 @@ struct EncoderState
 		return this->length;
 	}
  
+
+
+	size_t WriteDeflateBlock(int length, bool final)
+	{
+		if (_level == 0)
+		{
+			return writeUncompressedBlock(length, final);
+		}
+		else if (_level == 1)
+		{
+			return WriteBlockFixedHuff(length, final);
+		}
+		else if (_level > 1)
+		{
+			return WriteBlockUserHuffman(length, final);
+		}
+
+		return -1;
+	}
+
+
+	void AddData(const unsigned char* start, const unsigned char* end, uint32_t& adler)
+	{
+		source = start;
+		while (source != end)
+		{  
+			auto bytesWritten = WriteDeflateBlock(end - source, true);
+			adler = adler32x(adler, source, bytesWritten);
+			source += bytesWritten;
+		}
+	}
 	
 };

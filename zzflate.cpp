@@ -149,24 +149,6 @@ const int ChooseRunCount(int repeat_count)
 	return std::min(repeat_count - 3, 258);
 }
 
-int WriteDeflateBlock(EncoderState& state, int final)
-{
-	if (state._level == 0)
-	{
-		return state.writeUncompressedBlock(final);
-	}
-	else if (state._level == 1)
-	{
-		return state.WriteBlockFixedHuff(final);
-	}
-	else if (state._level > 1)
-	{
-		return state.WriteBlockUserHuffman(UserDefinedHuffman, final);
-	}
-
-	return -1;
-}
-
 
 void ZzFlateEncode(unsigned char *dest, unsigned long *destLen, const unsigned char *source, size_t sourceLen, int level)
 {
@@ -182,21 +164,9 @@ void ZzFlateEncode(unsigned char *dest, unsigned long *destLen, const unsigned c
 	state.stream.WriteU8(header.CMF);
 	state.stream.WriteU8(header.FLG);
 
-	auto end = source + sourceLen;
-	state.source = source;
-
 	uint32_t adler = 1; 
 
-	while (state.source != end)
-	{
-		int64_t bytes = std::min(end - state.source, 65536ll);
-		state.length = bytes;
-		
-		auto bytesWritten = WriteDeflateBlock(state, state.source + bytes == end ? 1 : 0);
-		adler = adler32x(adler, state.source, bytesWritten);
-		state.source += bytesWritten;
-
-	}
+	state.AddData(source, source + sourceLen, adler);
 	 
 
 	// end of zlib stream (not block!)	

@@ -66,7 +66,11 @@ unsigned huffman::reverse(unsigned value, int len)
 {
 	auto mask = ~((1 << len) - 1);
 
-	assert((value & mask) == 0);
+	if ((value & mask) != 0)
+	{
+		assert(false);
+	}
+	
 
 	return ::reverse(value) >> (32 - len);
 }
