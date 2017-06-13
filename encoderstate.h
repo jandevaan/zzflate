@@ -442,7 +442,7 @@ struct EncoderState
 
 		int matchLength = 0;
 
-		int maxLength = length - i;
+		auto maxLength = length - i;
 
 		if (maxLength >= 4)
 		{
@@ -465,7 +465,7 @@ struct EncoderState
 				return matchLength;
 		}
 
-		return maxLength;
+		return (int)maxLength;
 	}
 
 
@@ -538,7 +538,7 @@ struct EncoderState
 
 		stream.AppendToBitStream(codes[256]);
 
-		return length;
+		return (int)length;
 	}
 
 
@@ -604,11 +604,11 @@ struct EncoderState
 
 		stream.AppendToBitStream(codes[256]);
 
-		return length;
+		return (int)length;
 	}
 
 
-	size_t writeUncompressedBlock(int byteCount, int final)	
+	int writeUncompressedBlock(int byteCount, int final)	
 	{
 		length = byteCount;
 		StartBlock(Uncompressed, final);
@@ -619,12 +619,12 @@ struct EncoderState
 		memcpy(stream._stream, source, this->length);
 		stream._stream += this->length;
 
-		return this->length;
+		return (int)this->length;
 	}
  
 
 
-	size_t WriteDeflateBlock(int length, bool final)
+	int WriteDeflateBlock(int length, bool final)
 	{
 		if (_level == 0)
 		{
@@ -648,7 +648,7 @@ struct EncoderState
 		source = start;
 		while (source != end)
 		{  
-			auto bytesWritten = WriteDeflateBlock(end - source, true);
+			auto bytesWritten = WriteDeflateBlock((int)(end - source), true);
 			adler = adler32x(adler, source, bytesWritten);
 			source += bytesWritten;
 		}
