@@ -168,7 +168,7 @@ void ZzFlateEncode(unsigned char *dest, unsigned long *destLen, const unsigned c
 
 	state.AddData(source, source + sourceLen, adler);
 	 
-
+	
 	// end of zlib stream (not block!)	
 	state.stream.WriteBigEndianU32(adler);
 	state.stream.Flush();

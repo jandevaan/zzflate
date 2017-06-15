@@ -46,12 +46,12 @@ public:
 
 		_usedBitCount += bitCount;
 
-		if (_usedBitCount >= 32)
-		{
-			_usedBitCount -= 32;
-			write((uint32_t)_bitBuffer);
-			_bitBuffer = _bitBuffer >> 32;
-		}
+		if (_usedBitCount < 32)
+			return;
+
+		_usedBitCount -= 32;
+		write((uint32_t)_bitBuffer);
+		_bitBuffer = _bitBuffer >> 32;
 	}
 
 	void Flush()

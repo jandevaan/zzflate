@@ -67,7 +67,7 @@ struct EncoderState
 	outputbitstream stream;
 
 	const unsigned char* source;
-	size_t length;
+	size_t bufferLength;
 
 	CurrentBlockType _type;
 	int _level;
@@ -421,7 +421,7 @@ struct EncoderState
 
 	static unsigned int CalcHash(const unsigned char * source )
 	{
-		return (source[0] * 0x102u) ^ (source[1] * 0xF004u) ^ (source[2] * 0xFFu);
+		return (source[0] *0x102) ^ (source[1] * 0xF004u) ^ (source[2] * 0xFFu);
 	}
 
 	//int matchOffset(unsigned iu, unsigned short oldVal)
@@ -442,7 +442,7 @@ struct EncoderState
 
 		int matchLength = 0;
 
-		auto maxLength = length - i;
+		auto maxLength = bufferLength - i;
 
 		if (maxLength >= 4)
 		{
@@ -496,30 +496,29 @@ struct EncoderState
 	//}
 
 
-	void FixHashTable()
+	void FixHashTable(int offset)
 	{
 		for (int i = 0; i < hashtable.size(); ++i)
 		{
-			hashtable[i] = hashtable[i] - (int)length;
+			hashtable[i] = hashtable[i] - offset;
 		}
 	}
 
 	int WriteBlockFixedHuff(int byteCount, int final)
-	{  
-		length = byteCount;
+	{
+		bufferLength = byteCount;
 
 		StartBlock(FixedHuffman, final);
 		
-		for (int i = 0; i < length; ++i)
+		for (int i = 0; i < byteCount; ++i)
 		{
 			auto sourcePtr = source + i;
 			auto newHash = CalcHash(sourcePtr) & hashMask;
 			int offset = hashtable[newHash];
 			hashtable[newHash] = i;
-			if (i - offset < 32768)
+			if (unsigned(i - offset) < 32768)
 			{
 				int matchLength = countMatches(i, offset);
-
 				if (matchLength >= 3)
 				{
 					stream.AppendToBitStream(lcodes[matchLength].bits, lcodes[matchLength].length);
@@ -534,18 +533,18 @@ struct EncoderState
 			stream.AppendToBitStream(code.bits, code.length);
 		}
 
-		FixHashTable();
+		FixHashTable(byteCount);
 
 		stream.AppendToBitStream(codes[256]);
 
-		return (int)length;
+		return (int)byteCount;
 	}
 
 
-	int WriteBlockUserHuffman(int byteCount, int final)
+	int WriteBlockUserHuffman(int byteCount, bool final)
 	{
-	    
-		length = std::min(85536, byteCount);
+		bufferLength = byteCount;
+		auto length = (byteCount < 65536 && final) ? byteCount : std::min(85536, byteCount - 258);
 		comprecords.clear();
 
 		auto symbolFreqs = std::vector<int>(286,0);
@@ -571,13 +570,6 @@ struct EncoderState
 					i += matchLength - 1;
 					backRefEnd = i + 1;
 
-					/*if (comprecords.size() == comprecords.capacity())
-					{
-						length = i + 1;
-						break;
-					}*/
-						
-
 					continue;
 				}
 			}
@@ -585,16 +577,18 @@ struct EncoderState
 			symbolFreqs[source[i]]++;
 		}
 
-		FixHashTable();
-		   
+		length = std::max(length, backRefEnd);
+		
 		symbolFreqs[256]++;
 		
 		if (length< byteCount)
 		{
 			final = 0;
 		}
-		
-		comprecords.push_back({ (int)(length - backRefEnd), 0,0 });
+
+		comprecords.push_back({(int)(length - backRefEnd), 0,0});
+
+		FixHashTable(length);
 
 		StartBlock(UserDefinedHuffman, final);
 
@@ -610,16 +604,16 @@ struct EncoderState
 
 	int writeUncompressedBlock(int byteCount, int final)	
 	{
-		length = byteCount;
+		auto length = byteCount;
 		StartBlock(Uncompressed, final);
-		stream.WriteU16(int16_t(this->length));
-		stream.WriteU16(int16_t(~this->length));
+		stream.WriteU16(int16_t(length));
+		stream.WriteU16(int16_t(~length));
 		stream.Flush();
 
-		memcpy(stream._stream, source, this->length);
-		stream._stream += this->length;
+		memcpy(stream._stream, source, length);
+		stream._stream += length;
 
-		return (int)this->length;
+		return (int)length;
 	}
  
 
