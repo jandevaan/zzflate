@@ -116,17 +116,17 @@ std::vector<code> huffman::generate(const std::vector<int>& lengths)
 
 std::vector<int> huffman::defaultTableLengths()
 {
-	std::vector<int> lengths;
+	std::vector<int> lengths(288);
 
 	for (int i = 0; i < 288; ++i)
 	{
 		if (i <= 143 || i >= 280)
 		{
-			lengths.push_back(8);
+			lengths[i] = 8;
 			continue;
 		}
 
-		lengths.push_back(i <= 255 ? 9 : 7);
+		lengths[i] = i <= 255 ? 9 : 7;		
 	}
 
 	return lengths;

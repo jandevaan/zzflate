@@ -73,11 +73,14 @@ struct EncoderState
 	int _level;
 
 	std::vector<int> hashtable = std::vector<int>(hashSize, -100000);
-	std::vector<code> codes;
-	std::vector<code> dcodes;
-	code lcodes[259];
+	
+
 	std::vector<compressionRecord> comprecords;
 
+	
+	code dcodes[32];
+	code lcodes[259];
+	code codes[288];
 	EncoderState(int level, unsigned char* outputBuffer)
 		: stream(outputBuffer),
 		_level(level)
@@ -125,8 +128,10 @@ struct EncoderState
 
 	void InitFixedHuffman()
 	{
-		codes = huffman::generate(huffman::defaultTableLengths());
-		dcodes = std::vector<code>(32);
+		auto buffer = huffman::generate(huffman::defaultTableLengths());
+
+		std::copy(buffer.begin(), buffer.end(), codes); 
+		 
 		for (int i = 0; i < 32; ++i)
 		{
 			dcodes[i] = { 5, (unsigned short)huffman::reverse(i, 5) };
@@ -141,10 +146,17 @@ struct EncoderState
 				code.length + lengthRecord.extraBitLength,
 				(lengthRecord.extraBits << code.length) | (unsigned int)code.bits };
 		}
+ 
 	}
 
 	void WriteDistance(int offset)
 	{
+		if (offset < 4)
+		{
+			stream.AppendToBitStream(dcodes[offset - 1]);
+			return;
+		}
+
 		auto bucket = distanceTable[FindDistance2(offset)];
 		stream.AppendToBitStream(dcodes[bucket.code]);
 		stream.AppendToBitStream(offset - bucket.distanceStart, bucket.bits);
@@ -415,8 +427,11 @@ struct EncoderState
 			stream.AppendToBitStream(metaCodes[d]);
 		}
 
-		codes = huffman::generate(symLengths);
-		dcodes = huffman::generate(distLengths);
+		auto symcodes = huffman::generate(symLengths);
+		std::copy(symcodes.begin(), symcodes.end(), codes);
+		
+		auto distcodes = huffman::generate(distLengths);
+		std::copy(distcodes.begin(), distcodes.end(), dcodes);
 	}
 
 	static unsigned int CalcHash(const unsigned char * source )
@@ -544,7 +559,7 @@ struct EncoderState
 	int WriteBlockUserHuffman(int byteCount, bool final)
 	{
 		bufferLength = byteCount;
-		auto length = (byteCount < 65536 && final) ? byteCount : std::min(85536, byteCount - 258);
+		auto length = (byteCount < 65536 && final) ? byteCount : std::min(80000, byteCount - 258);
 		comprecords.clear();
 
 		auto symbolFreqs = std::vector<int>(286,0);

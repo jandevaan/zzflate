@@ -40,7 +40,7 @@ TEST(BitOutput, TestSimple2)
 TEST(BitOutput, TrivHuffman)
 {
 	std::vector <int> buffer = {2, 1, 3, 3};
-
+	
 	auto codes = huffman::generate(buffer);
 
 	EXPECT_EQ(codes[1].bits,0);
