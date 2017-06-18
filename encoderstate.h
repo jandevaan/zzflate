@@ -72,19 +72,24 @@ struct EncoderState
 	CurrentBlockType _type;
 	int _level;
 
-	std::vector<int> hashtable = std::vector<int>(hashSize, -100000);
 	
-
 	std::vector<compressionRecord> comprecords;
 
 	
+	code codes[288]; // literals
+	code lcodes[259]; // codes to send lengths
 	code dcodes[32];
-	code lcodes[259];
-	code codes[288];
+	int hashtable[hashSize];
+
 	EncoderState(int level, unsigned char* outputBuffer)
 		: stream(outputBuffer),
 		_level(level)
 	{
+
+		for(auto& h : hashtable)
+		{
+			h = -100000;
+		}
 		
 		if (level == 1)
 		{
@@ -364,7 +369,7 @@ struct EncoderState
 
 			if (r.length != 0)
 			{
-				WriteLength(r.length);
+				stream.AppendToBitStream(lcodes[r.length].bits, lcodes[r.length].length);
 				WriteDistance(r.backoffset);
 			}
 
@@ -432,6 +437,17 @@ struct EncoderState
 		
 		auto distcodes = huffman::generate(distLengths);
 		std::copy(distcodes.begin(), distcodes.end(), dcodes);
+
+
+		for (int i = 0; i < 259; ++i)
+		{
+			auto lengthRecord = lengthTable[i];
+
+			auto code = codes[lengthRecord.code];
+			lcodes[i] = {
+				code.length + lengthRecord.extraBitLength,
+				(lengthRecord.extraBits << code.length) | (unsigned int)code.bits };
+		}
 	}
 
 	static unsigned int CalcHash(const unsigned char * source )
@@ -513,7 +529,7 @@ struct EncoderState
 
 	void FixHashTable(int offset)
 	{
-		for (int i = 0; i < hashtable.size(); ++i)
+		for (int i = 0; i < hashSize; ++i)
 		{
 			hashtable[i] = hashtable[i] - offset;
 		}
