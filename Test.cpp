@@ -125,7 +125,7 @@ int testroundtripperfzlib(std::vector<unsigned char>& bufferUncompressed, int co
 		compress2(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], source_len, compression);
 	}
 
-	std::cout << "Reduced " << testSize << " by " << ((testSize - comp_len) * 100 / testSize) << "%";
+	std::cout << "Reduced " << testSize << " to " << ((testSize) * 100 / testSize) << "%";
 
 	return 0;
 }
@@ -139,7 +139,7 @@ int testroundtrip(std::vector<unsigned char>& bufferUncompressed, int compressio
 	comp_len = (uLongf)bufferCompressed.size();
 	ZzFlateEncode(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
 
-	std::cout << "Reduced " << testSize << " by " << ((testSize -comp_len) * 100 / testSize) << "%";
+	std::cout << "Reduced " << testSize << " to " << ((testSize) * 100 / testSize) << "%";
 
 	std::vector<unsigned char> decompressed(testSize);
 	auto unc_len = decompressed.size();

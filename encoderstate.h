@@ -166,16 +166,7 @@ struct EncoderState
 		stream.AppendToBitStream(dcodes[bucket.code]);
 		stream.AppendToBitStream(offset - bucket.distanceStart, bucket.bits);
 	}
-
-	void WriteLength(int runLength)
-	{
-		auto lengthRecord = lengthTable[runLength];
-		auto code = lengthRecord.code;
-
-		stream.AppendToBitStream(codes[code]);
-		stream.AppendToBitStream(lengthRecord.extraBits, lengthRecord.extraBitLength);
-	}
-
+  
 
 	void StartBlock(CurrentBlockType type, int final)
 	{
@@ -466,7 +457,7 @@ struct EncoderState
 	//	
 	//}
 
-    __forceinline  int countMatches(int i, int offset)
+    __forceinline int countMatches(int i, int offset)
 	{
 		auto a = source + i;
 		auto b = source + offset;
@@ -477,12 +468,12 @@ struct EncoderState
 
 		if (maxLength >= 4)
 		{
+			matchLength = 4;
+
 			auto delta = *(uint32_t*)a ^ *(uint32_t*)b;
 
 			if (delta != 0)
-				return (delta << 8 == 0) ? 3 : 0;
-
-			matchLength = 4;
+				return (delta << 8 == 0) * 3;
 		}
 		
 		if (maxLength > 258)
@@ -496,7 +487,7 @@ struct EncoderState
 				return matchLength;
 		}
 
-		return (int)maxLength;
+		return maxLength;
 	}
 
 
@@ -549,7 +540,7 @@ struct EncoderState
 			hashtable[newHash] = i;
 			if (unsigned(i - offset) < 32768)
 			{
-				int matchLength = countMatches(i, offset);
+				auto matchLength = countMatches(i, offset);
 				if (matchLength >= 3)
 				{
 					stream.AppendToBitStream(lcodes[matchLength].bits, lcodes[matchLength].length);
@@ -591,7 +582,7 @@ struct EncoderState
 			 
 			if (i - 32768 < offset)
 			{
-				int matchLength = countMatches(i, offset);
+				auto matchLength = countMatches(i, offset);
 
 				if (matchLength >= 3)
 				{
