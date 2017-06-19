@@ -24,11 +24,13 @@ struct lengthRecord
 	char extraBits;
 	char extraBitLength;
 };
+
+
 struct distanceRecord
 {
-	int code;
-	int bits;
-	int distanceStart;
+	unsigned char code;
+	unsigned char bits;
+	unsigned short distanceStart;
 };
 
 
@@ -38,6 +40,8 @@ extern lengthRecord  lengthTable[259];
 extern code  lengthCodes[259];
 
 extern const distanceRecord distanceTable[32];
+extern const int distanceTable2[32];
+extern unsigned char distanceLut[32769];
 
 class greater
 {
@@ -67,7 +71,7 @@ struct EncoderState
 {
 	outputbitstream stream;
 
-	const unsigned char* source;
+	const unsigned char* source; 
 	size_t bufferLength;
 
 	CurrentBlockType _type;
@@ -103,7 +107,7 @@ struct EncoderState
 	}
 
 
-	int FindDistance(int offset)
+	static int FindDistance(int offset)
 	{
 		for (int n = 1; n < std::size(distanceTable); ++n)
 		{
@@ -115,22 +119,7 @@ struct EncoderState
 		return -1;
 	}
 
-
-	int FindDistance2(int offset)
-	{
-		int n = 0;
-		n += (distanceTable[n + 16].distanceStart <= offset) << 4;
-		n += (distanceTable[n + 8].distanceStart <= offset) << 3;
-		n += (distanceTable[n + 4].distanceStart <= offset) << 2;
-		n += (distanceTable[n + 2].distanceStart <= offset) << 1;
-		n += (distanceTable[n + 1].distanceStart <= offset);
-
-		if (n < 0 || n > 29)
-		{
-			assert(false);
-		}
-		return n ;
-	}
+	 
 
 	void InitFixedHuffman()
 	{
@@ -157,13 +146,13 @@ struct EncoderState
 
 	void WriteDistance(int offset)
 	{
-		if (offset < 4)
+		/*if (offset < 4)
 		{
 			stream.AppendToBitStream(dcodes[offset - 1]);
 			return;
-		}
+		}*/
 
-		auto bucket = distanceTable[FindDistance2(offset)];
+		auto bucket = distanceTable[distanceLut[offset]];
 		stream.AppendToBitStream(dcodes[bucket.code]);
 		stream.AppendToBitStream(offset - bucket.distanceStart, bucket.bits);
 	}
@@ -544,13 +533,14 @@ struct EncoderState
 			auto newHash = CalcHash(sourcePtr);
 			int offset = hashtable[newHash];
 			hashtable[newHash] = i;
-			if (unsigned(i - offset) < 32768)
+			auto delta = i - offset;
+			if (unsigned(delta) < 0x8000)
 			{
 				auto matchLength = countMatches(i, offset);
 				if (matchLength >= 3)
 				{
 					stream.AppendToBitStream(lcodes[matchLength].bits, lcodes[matchLength].length);
-					WriteDistance( i - offset);
+					WriteDistance(delta);
 
 					i += matchLength - 1;
 					continue;

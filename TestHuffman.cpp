@@ -17,7 +17,7 @@ TEST(ZzFlate, TestDistanceSearch)
 	for (int distance = 0; distance < 32768; ++distance)
 	{
 		int a = state.FindDistance(distance);
-		int b = state.FindDistance2(distance);
+		int b = distanceLut[distance];
 
 		if (a != b)
 		{

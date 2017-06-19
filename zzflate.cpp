@@ -83,7 +83,9 @@ const distanceRecord distanceTable[32]{
 	30,0, 32768,
 };
 
+unsigned char distanceLut[32769];
 
+ 
 
 struct header
 {
@@ -137,6 +139,11 @@ void buildLengthLookup()
 	lengthTable[258] = { 285, 0,0 };
 
 
+	for (int i = 1; i < 32769; ++i)
+	{
+		distanceLut[i] = EncoderState::FindDistance(i);
+	}
+
 
 }
 
@@ -168,7 +175,6 @@ void ZzFlateEncode(unsigned char *dest, unsigned long *destLen, const unsigned c
 
 	state.AddData(source, source + sourceLen, adler);
 	 
-	
 	// end of zlib stream (not block!)	
 	state.stream.WriteBigEndianU32(adler);
 	state.stream.Flush();
