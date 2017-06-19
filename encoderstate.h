@@ -6,7 +6,8 @@ namespace
 {
 	const char order[] = { 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15 };
 
-	const unsigned hashSize = 0x2000;
+	const int hashBits = 13;
+	const unsigned hashSize = 1 << hashBits;
 	const unsigned hashMask = hashSize -1;
 } 
 
@@ -443,7 +444,12 @@ struct EncoderState
 
 	static unsigned int CalcHash(const unsigned char * source )
 	{
-		return (source[0] *0x102) ^ (source[1] * 0xF004u) ^ (source[2] * 0xFFu);
+		 unsigned int val = 
+			(source[0] * 0x02ba2786u) ^
+			(source[1] * 0x00d68664u) ^
+			(source[2] * 0x07d67651u);
+
+		return val >> (32 - hashBits);;
 	}
 
 	//int matchOffset(unsigned iu, unsigned short oldVal)
@@ -473,7 +479,7 @@ struct EncoderState
 			auto delta = *(uint32_t*)a ^ *(uint32_t*)b;
 
 			if (delta != 0)
-				return (delta << 8 == 0) * 3;
+				return (delta << 8 == 0) ? 3 : 0;
 		}
 		
 		if (maxLength > 258)
@@ -535,7 +541,7 @@ struct EncoderState
 		for (int i = 0; i < byteCount; ++i)
 		{
 			auto sourcePtr = source + i;
-			auto newHash = CalcHash(sourcePtr) & hashMask;
+			auto newHash = CalcHash(sourcePtr);
 			int offset = hashtable[newHash];
 			hashtable[newHash] = i;
 			if (unsigned(i - offset) < 32768)
@@ -576,7 +582,7 @@ struct EncoderState
 
 		for (int i = 0; i < length; ++i)
 		{
-			auto newHash = CalcHash(source + i) & hashMask;
+			auto newHash = CalcHash(source + i);
 			int offset = hashtable[newHash];
 			hashtable[newHash] = i;
 			 
