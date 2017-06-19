@@ -487,7 +487,7 @@ struct EncoderState
 				return matchLength;
 		}
 
-		return maxLength;
+		return (int)maxLength;
 	}
 
 
