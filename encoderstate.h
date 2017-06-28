@@ -1,5 +1,7 @@
 ﻿
+#pragma once
 #include <functional>
+#include "huffman.h"
 
 
 namespace
@@ -81,8 +83,8 @@ struct EncoderState
 	std::vector<compressionRecord> comprecords;
 
 	
-	code codes[288]; // literals
-	code lcodes[259]; // codes to send lengths
+	scode codes[288]; // literals
+	code lcodes[259]; // codes to send lengths (symbol + extra bits for all 258)
 	code dcodes[32];
 	int hashtable[hashSize];
 
@@ -125,8 +127,12 @@ struct EncoderState
 	{
 		auto buffer = huffman::generate(huffman::defaultTableLengths());
 
-		std::copy(buffer.begin(), buffer.end(), codes); 
-		 
+	 	for (int i = 0; i < 288; ++i)
+		{
+			codes[i] = { (char)buffer[i].length, (unsigned short)buffer[i].bits };
+		}
+		
+
 		for (int i = 0; i < 32; ++i)
 		{
 			dcodes[i] = { 5, (unsigned short)huffman::reverse(i, 5) };
@@ -146,14 +152,10 @@ struct EncoderState
 
 	void WriteDistance(int offset)
 	{
-		/*if (offset < 4)
-		{
-			stream.AppendToBitStream(dcodes[offset - 1]);
-			return;
-		}*/
+		auto bucketId = distanceLut[offset];
+		stream.AppendToBitStream(dcodes[bucketId]);
 
-		auto bucket = distanceTable[distanceLut[offset]];
-		stream.AppendToBitStream(dcodes[bucket.code]);
+		auto bucket = distanceTable[bucketId];
 		stream.AppendToBitStream(offset - bucket.distanceStart, bucket.bits);
 	}
   
@@ -177,17 +179,8 @@ struct EncoderState
 	};
 
 
-	static std::vector<int> Lengths(const std::vector<treeItem>& tree, int maxLength)
+	static std::vector<int> Lengths(const std::vector<treeItem>& tree )
 	{
-
-		for (auto item : tree)
-		{
-			if (item.bits > maxLength)
-			{
-				assert(false);
-			}
-		}
-
 
 		std::vector<int> lengths = std::vector<int>();
 
@@ -207,20 +200,20 @@ struct EncoderState
 		return lengths;
 	}
 
-	std::vector<int> calcLengths(const std::vector<int>& freqsx, int maxLength)
+	int CalculateTree(const std::vector<int>& symbolFreqs, int minFreq, std::vector<treeItem>& tree)
 	{
-		long long symbolcount = 0;
-		 
+		tree.clear();
 		std::vector<record> records;
-		std::vector<treeItem> tree;
-		for (int i = 0; i < freqsx.size(); ++i)
+		for (int i = 0; i < symbolFreqs.size(); ++i)
 		{
-			int freq = freqsx[i];// != 0 ? std::max(limit, freqsx[i]) : 0;
-			tree.push_back({ freq, i, -1 });
-			
-			if (freqsx[i] == 0)
+			if (symbolFreqs[i] == 0)
+			{
+				tree.push_back({ 0, i, -1 });
 				continue;
+			}
 
+			int freq =  std::max(minFreq, symbolFreqs[i]);
+			tree.push_back({ freq, i, -1 });			 
 			record rec = { freq, i };
 			records.push_back(rec);
 			
@@ -247,59 +240,41 @@ struct EncoderState
 			push_heap(records.begin(), records.end(), pred);
 		}
 
-		std::vector<int> lengthCounts(maxLength +2, 0);
-		
-		 
+		int maxLength = 0;
 		for (auto i = tree.size() - 1; i != 0; --i)
 		{
 			auto item = tree[i];
 			if (item.right == -1)
 			{
-				if (item.bits > maxLength)
-				{ 
-					tree[i].bits = maxLength;
-					lengthCounts[maxLength]++;
-				}
-				else
-				{
-					lengthCounts[item.bits]++;
-				}
-
+				maxLength = std::max(maxLength, item.bits);
 				continue;
 			}
-				
 			tree[item.left].bits = item.bits + 1;
 			tree[item.right].bits = item.bits + 1;
 		}
-	    
-		int codeSpaceSize = 1 << maxLength;
+		return maxLength;
+	}
 
-		for (int i = 1; i <= maxLength; ++i)
+	std::vector<int> calcLengths(const std::vector<int>& symbolFreqs, int maxLength)
+	{
+		int minFreq = 0;
+		std::vector<treeItem> tree;
+		while (true)
 		{
-			codeSpaceSize -= lengthCounts[i] << (maxLength - i);
-		}
+			int max = CalculateTree(symbolFreqs, minFreq, tree);
 
-		if (codeSpaceSize < 0)
-		{
-			std::sort(tree.begin(), tree.end(), [](treeItem a, treeItem b) { return a.frequency < b.frequency; });
-
-			for (int n = 0; n < tree.size(); ++n)
+			if (max <= maxLength)
+				return Lengths(tree);
+		    
+			int total = 0;
+			for(auto n : symbolFreqs)
 			{
-				if (tree[n].bits == maxLength)
-					continue;
-
-				codeSpaceSize += 1 << (maxLength - tree[n].bits);
-				codeSpaceSize -= 1 << maxLength;
-				tree[n].bits = maxLength;
-
-				if (codeSpaceSize >= 0)
-					break;
+				total += n;
 			}
-
+			
+			minFreq += total / (1 << maxLength);
 		}
-
-		 
-		return Lengths(tree, maxLength);
+		
 	}
 
 
@@ -414,8 +389,13 @@ struct EncoderState
 		}
 
 		auto symcodes = huffman::generate(symLengths);
-		std::copy(symcodes.begin(), symcodes.end(), codes);
-		
+		 
+		for (int i = 0; i < 286; ++i)
+		{
+			codes[i] = { (char)symcodes[i].length, (unsigned short)symcodes[i].bits };
+		}
+
+
 		auto distcodes = huffman::generate(distLengths);
 		std::copy(distcodes.begin(), distcodes.end(), dcodes);
 
@@ -441,16 +421,6 @@ struct EncoderState
 		return val >> (32 - hashBits);;
 	}
 
-	//int matchOffset(unsigned iu, unsigned short oldVal)
-	//{ 
-	//	int i = iu;
-	//	auto offset =  (i & ~0x7FFF) + oldVal;
-	//	
-	//	unsigned val = offset >= i;
-
-	//	return offset - (val << 15);
-	//	
-	//}
 
     __forceinline int countMatches(int i, int offset)
 	{
@@ -485,33 +455,7 @@ struct EncoderState
 		return (int)maxLength;
 	}
 
-
-	//	
-
-	//	int matchLength = 0;      // +(diff == 0);
-
-	//	while (matchLength <= limit - 4)
-	//	{
-	//		auto diff = (*wpa) ^ (*wpb);
-
-	//		if (diff != 0)
-	//		{
-	//			int offset2 = 2 * ((diff & 0xFFFF) == 0);
-	//			diff = diff | (diff >> 16);
-
-	//			int offset1 = ((diff & 0xFF) ==0 );
-
-	//			return matchLength + offset2 + offset1;
-	//		}
-	//		
-	//		matchLength += 4;
-	//		wpa++;
-	//		wpb++;
-	//	}
-	//	 
-	//	return limit;
-	//}
-
+ 
 
 	void FixHashTable(int offset)
 	{
@@ -562,7 +506,7 @@ struct EncoderState
 	int WriteBlockUserHuffman(int byteCount, bool final)
 	{
 		bufferLength = byteCount;
-		auto length = (byteCount < 65536 && final) ? byteCount : std::min(80000, byteCount - 258);
+		auto length = (byteCount < 65536 && final) ? byteCount : std::min(256000, byteCount - 258);
 		comprecords.clear();
 
 		auto symbolFreqs = std::vector<int>(286,0);

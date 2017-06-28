@@ -1,12 +1,6 @@
-
-
-#include <vector>
 #include <cassert> 
 #include <gtest/gtest.h>
 #include "outputbitstream.h"
-#include "huffman.h"
-#include <fstream>
-#include <numeric>
 
 
 #include "encoderstate.h"

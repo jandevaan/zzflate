@@ -10,6 +10,21 @@
 #include <chrono>
 
 
+#include <filesystem>
+namespace fs = std::experimental::filesystem;
+
+std::vector<std::string> directory(std::string folder)
+{
+
+	std::vector<std::string> files = {};
+	 
+	for (fs::directory_entry p : fs::directory_iterator(folder))
+	{ 
+		files.push_back(p.path().string());
+ 	}
+	return files;
+}
+
 std::vector<unsigned char> readFile(std::string name)
 {
 	std::ifstream file;
@@ -132,7 +147,7 @@ int testroundtripperfzlib(std::vector<unsigned char>& bufferUncompressed, int co
 	return 0;
 }
 
-int testroundtrip(std::vector<unsigned char>& bufferUncompressed, int compression)
+int testroundtrip(std::vector<unsigned char>& bufferUncompressed, int compression, std::string name = "")
 { 
 	auto testSize = bufferUncompressed.size();
 	auto  bufferCompressed = std::vector<unsigned char>(testSize * 3 / 2 + 5000);
@@ -144,7 +159,7 @@ int testroundtrip(std::vector<unsigned char>& bufferUncompressed, int compressio
 	std::cout << std::fixed;
 	std::cout << std::setprecision(2);
 
-	std::cout << "Reduced " << testSize << " to " << ((comp_len) * 100.0 / testSize) << "%";
+	std::cout << "Reduced " << name << " " << testSize << " to " << ((comp_len) * 100.0 / testSize) << "%\r\n" ;
 
 	std::vector<unsigned char> decompressed(testSize);
 	auto unc_len = decompressed.size();
@@ -164,6 +179,27 @@ int testroundtrip(std::vector<unsigned char>& bufferUncompressed, int compressio
 	return (int)comp_len;
 }
 
+
+
+
+const uint64_t magic = 0x022fdd63cc95386d; // the 4061955.
+
+const unsigned int magictable[64] =
+{
+	0,  1,  2, 53,  3,  7, 54, 27,
+	4, 38, 41,  8, 34, 55, 48, 28,
+	62,  5, 39, 46, 44, 42, 22,  9,
+	24, 35, 59, 56, 49, 18, 29, 11,
+	63, 52,  6, 26, 37, 40, 33, 47,
+	61, 45, 43, 21, 23, 58, 17, 10,
+	51, 25, 36, 32, 60, 20, 57, 16,
+	50, 31, 19, 15, 30, 14, 13, 12,
+};
+
+unsigned int bitScanForward(uint64_t b) {
+	return magictable[(uint64_t(b&-(int64_t)b)*magic) >> 58];
+}
+
 int main(int ac, char* av[])
 {
 	buildLengthLookup();
@@ -174,7 +210,7 @@ int main(int ac, char* av[])
 
 namespace
 {
-	std::vector<unsigned char> bufferUncompressed = readFile("e:\\tools\\adinsight.exe");
+	std::vector<unsigned char> bufferUncompressed = readFile("c:\\tools\\sysinternals\\adinsight.exe");
 }
 
 
@@ -189,6 +225,16 @@ TEST(ZzFlate, UserHuffman)
 }
 
 
+TEST(ZzFlate, Canterbury)
+{
+	for(auto x : directory("c://dev//corpus"))
+	{
+		testroundtrip(readFile(x), 2, x);
+	}
+	
+}
+ 
+  
 TEST(ZzFlate, SimpleUncompressed)
 {
 	auto bufferUncompressed = std::vector<unsigned char>(20, 3);
@@ -202,10 +248,7 @@ TEST(ZzFlate, SimpleUncompressed)
 
 }
 
-
-
-
-
+ 
 TEST(ZzxFlatePerf, UserHuffmanPerf)
 {
 	testroundtripperf(bufferUncompressed, 2);

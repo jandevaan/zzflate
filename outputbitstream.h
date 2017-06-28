@@ -7,9 +7,15 @@
 uint32_t adler32x(uint32_t startValue, const unsigned char *data, size_t len);
 
 struct code
-{
+{ 
 	int length;
 	unsigned int bits;
+};
+
+struct scode
+{
+	short length;
+	unsigned short bits;
 };
 
 
@@ -29,6 +35,15 @@ public:
 	__forceinline void AppendToBitStream(code code)
 	{
 		if(code.length == 0)
+		{
+			assert(false);
+		}
+		AppendToBitStream(code.bits, code.length);
+	}
+
+	__forceinline void AppendToBitStream(scode code)
+	{
+		if (code.length == 0)
 		{
 			assert(false);
 		}

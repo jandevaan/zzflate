@@ -59,7 +59,7 @@ struct intRange
 	}
 };
  
-const int MAX_BITS = 30;
+const int MAX_BITS = 16;
 
 
 unsigned huffman::reverse(unsigned value, int len)
