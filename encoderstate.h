@@ -3,6 +3,7 @@
 #include <functional>
 #include "huffman.h"
 
+#include <intrin.h>
 
 namespace
 {
@@ -274,7 +275,6 @@ struct EncoderState
 			
 			minFreq += total / (1 << maxLength);
 		}
-		
 	}
 
 
@@ -422,25 +422,8 @@ struct EncoderState
 	}
 
 
-    __forceinline int countMatches(int i, int offset)
+	int remain(const unsigned char* a, const unsigned char* b, int matchLength, unsigned maxLength)
 	{
-		auto a = source + i;
-		auto b = source + offset;
-
-		int matchLength = 0;
-
-		auto maxLength = bufferLength - i;
-
-		if (maxLength >= 4)
-		{
-			matchLength = 4;
-
-			auto delta = *(uint32_t*)a ^ *(uint32_t*)b;
-
-			if (delta != 0)
-				return (delta << 8 == 0) ? 3 : 0;
-		}
-		
 		if (maxLength > 258)
 		{
 			maxLength = 258;
@@ -453,6 +436,31 @@ struct EncoderState
 		}
 
 		return (int)maxLength;
+	}
+
+    __forceinline int countMatches(int i, int offset)
+	{
+		auto a = source + i;
+		auto b = source + offset;
+
+		int matchLength = 0;
+
+		auto maxLength = bufferLength - i;
+
+		typedef uint64_t compareType;
+
+		if (maxLength >= (sizeof(compareType)))
+		{
+			matchLength = sizeof(compareType);
+
+			auto delta = *(compareType*)a ^ *(compareType*)b;
+
+			unsigned long index;
+			if (_BitScanForward64(&index, delta)!= 0)
+				return index >> 3;
+		}
+		
+		return remain(a, b, matchLength, maxLength);
 	}
 
  
