@@ -494,7 +494,13 @@ struct EncoderState
 					stream.AppendToBitStream(lcodes[matchLength].bits, lcodes[matchLength].length);
 					WriteDistance(delta);
 
-					i += matchLength - 1;
+					int nextI = i + matchLength - 1;
+					while (i < nextI)
+					{ 
+ 					//	hashtable[CalcHash(source + i)] = i; 
+						i ++; 
+					}
+					 
 					continue;
 				}
 			}
@@ -510,7 +516,7 @@ struct EncoderState
 		return (int)byteCount;
 	}
 
-
+ 
 	int WriteBlockUserHuffman(int byteCount, bool final)
 	{
 		bufferLength = byteCount;
@@ -536,8 +542,14 @@ struct EncoderState
 				{
 					symbolFreqs[lengthTable[matchLength].code]++;
 					comprecords.push_back({ (int)(i - backRefEnd), (unsigned short)(i - offset), (unsigned short)matchLength });
+					int nextI = i + matchLength - 1;
+					while (i < nextI)
+					{
+						hashtable[CalcHash(source + i)] = i;
+						i++;
+					}
 
-					i += matchLength - 1;
+				
 					backRefEnd = i + 1;
 
 					continue;
@@ -571,6 +583,83 @@ struct EncoderState
 		return (int)length;
 	}
 
+	int WriteBlockUserHuffman2(int byteCount, bool final)
+	{
+		bufferLength = byteCount;
+		auto length = (byteCount < 65536 && final) ? byteCount : std::min(256000, byteCount - 258);
+		comprecords.clear();
+
+		auto symbolFreqs = std::vector<int>(286, 0);
+
+		auto distanceFrequencies = std::vector<int>(30, 1);
+		int backRefEnd = 0;
+
+		for (int i = 0; i < length; ++i)
+		{
+			auto newHash = CalcHash(source + i);
+			int offset = hashtable[newHash];
+			
+
+			if (i - 32768 < offset)
+			{
+				
+				auto matchLength = countMatches(i, offset);
+
+				if (matchLength >= 3)
+				{
+					auto nextHash = CalcHash(source + i + 1);
+					int nextoffset = hashtable[nextHash];
+					auto nextLength = countMatches(i + 1, nextoffset);
+					hashtable[newHash] = i;
+
+					if (nextLength > matchLength)
+					{
+						symbolFreqs[source[i++]]++;
+						hashtable[nextHash] = i;
+
+						matchLength = nextLength;
+						offset = nextoffset;
+					}
+
+					symbolFreqs[lengthTable[matchLength].code]++;
+					comprecords.push_back({ (int)(i - backRefEnd), (unsigned short)(i - offset), (unsigned short)matchLength });
+
+					i += matchLength - 1;
+					backRefEnd = i + 1;
+					
+					continue;
+				}
+			}
+			hashtable[newHash] = i;
+			symbolFreqs[source[i]]++;
+		}
+
+		length = std::max(length, backRefEnd);
+
+		symbolFreqs[256]++;
+
+		if (length< byteCount)
+		{
+			final = 0;
+		}
+
+		comprecords.push_back({ (int)(length - backRefEnd), 0,0 });
+
+		FixHashTable(length);
+
+		StartBlock(UserDefinedHuffman, final);
+
+		prepareCodes(symbolFreqs, distanceFrequencies);
+
+		WriteRecords(source, comprecords, UserDefinedHuffman, final != 0);
+
+		stream.AppendToBitStream(codes[256]);
+
+		return (int)length;
+	}
+
+
+
 
 	int writeUncompressedBlock(int byteCount, int final)	
 	{
@@ -598,11 +687,14 @@ struct EncoderState
 		{
 			return WriteBlockFixedHuff(length, final);
 		}
-		else if (_level > 1)
+		else if (_level == 2)
 		{
 			return WriteBlockUserHuffman(length, final);
 		}
-
+		else if (_level == 3)
+		{
+			return WriteBlockUserHuffman2(length, final);
+		}
 		return -1;
 	}
 

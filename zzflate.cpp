@@ -153,7 +153,7 @@ const int ChooseRunCount(int repeat_count)
 
 void ZzFlateEncode(unsigned char *dest, unsigned long *destLen, const unsigned char *source, size_t sourceLen, int level)
 {
-	if (level < 0 || level > 2)
+	if (level < 0 || level >3)
 	{
 		*destLen = -1;
 		return;

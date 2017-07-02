@@ -224,12 +224,13 @@ TEST(ZzFlate, UserHuffman)
 	testroundtrip(bufferUncompressed, 2);
 }
 
+ 
 
 TEST(ZzFlate, Canterbury)
 {
 	for(auto x : directory("c://dev//corpus"))
 	{
-		testroundtripperf(readFile(x), 1);
+		testroundtrip(readFile(x), 2, x);
 	}
 	
 }
