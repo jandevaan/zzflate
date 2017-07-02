@@ -411,24 +411,14 @@ struct EncoderState
 		}
 	}
 
-	static unsigned int CalcHash(const unsigned char * source )
+	 static unsigned int CalcHash(const unsigned char * source )
 	{
 		uint32_t* source32 = (uint32_t*)source;
 		auto val = (*source32 >> 8) * 0x00d68664u;
   
 		return val >> (32 - hashBits);;
 	}
-
-
-	static unsigned int CalcHash(  unsigned int&  hashSeed, unsigned int next)
-	{
-		hashSeed = (hashSeed << 8) | next; 
-
-		auto val = (hashSeed >> 8) * 0x00d68664u;
-
-		return val >> (32 - hashBits);;
-	}
-
+	 
 	int remain(const unsigned char* a, const unsigned char* b, int matchLength, unsigned maxLength)
 	{
 		if (maxLength > 258)
@@ -504,7 +494,7 @@ struct EncoderState
 					int nextI = i + matchLength - 1;
 					while (i < nextI)
 					{ 
- 					//	hashtable[CalcHash(source + i)] = i; 
+ 						//hashtable[CalcHash(source + i)] = i; 
 						i ++; 
 					}
 					 
