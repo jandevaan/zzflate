@@ -9,7 +9,7 @@ namespace
 {
 	const char order[] = { 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15 };
 
-	const int hashBits = 13;
+	const int hashBits = 16;
 	const unsigned hashSize = 1 << hashBits;
 	const unsigned hashMask = hashSize -1;
 } 
@@ -413,11 +413,9 @@ struct EncoderState
 
 	static unsigned int CalcHash(const unsigned char * source )
 	{
-		 unsigned int val = 
-			(source[0] * 0x02ba2786u) ^
-			(source[1] * 0x00d68664u) ^
-			(source[2] * 0x07d67651u);
-
+		auto val = (source[0] + (source[1] << 8) + (source[2] << 16)) * 0x00d68664u;
+		 
+*/
 		return val >> (32 - hashBits);;
 	}
 
