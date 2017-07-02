@@ -229,7 +229,7 @@ TEST(ZzFlate, Canterbury)
 {
 	for(auto x : directory("c://dev//corpus"))
 	{
-		testroundtrip(readFile(x), 2, x);
+		testroundtripperf(readFile(x), 1);
 	}
 	
 }
