@@ -128,7 +128,7 @@ int testroundtripperf(std::vector<unsigned char>& bufferUncompressed, int compre
 }
 
 
-int testroundtripperfzlib(std::vector<unsigned char>& bufferUncompressed, int compression)
+int testroundtripperfzlib(std::vector<unsigned char>& bufferUncompressed, int compression, std::string name = {})
 {
 	uLong source_len = bufferUncompressed.size();
 	auto testSize = source_len; 
@@ -142,12 +142,12 @@ int testroundtripperfzlib(std::vector<unsigned char>& bufferUncompressed, int co
 	std::cout << std::fixed;
 	std::cout << std::setprecision(2);
 
-	std::cout << "Reduced " << testSize << " to " << ((comp_len) * 100.0 / testSize) << "%";
+	std::cout << name << "Reduced " << testSize << " to " << ((comp_len) * 100.0 / testSize) << "%" << "\r\n";
 
 	return 0;
 }
 
-int testroundtrip(std::vector<unsigned char>& bufferUncompressed, int compression, std::string name = "")
+int testroundtrip(const std::vector<unsigned char>& bufferUncompressed, int compression, std::string name = "")
 { 
 	auto testSize = bufferUncompressed.size();
 	auto  bufferCompressed = std::vector<unsigned char>(testSize * 3 / 2 + 5000);
@@ -233,7 +233,16 @@ TEST(ZzFlate, Canterbury)
 	}
 	
 }
- 
+
+
+TEST(ZzFlate, CanterburyZlib)
+{
+	for (auto x : directory("c://dev//corpus"))
+	{
+		testroundtripperfzlib(readFile(x), 1, x);
+	}
+
+}
   
 TEST(ZzFlate, SimpleUncompressed)
 {
