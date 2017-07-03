@@ -266,8 +266,6 @@ TEST(ZzxFlatePerf, UserHuffmanPerf)
 
 
 
-
-
 TEST(ZzxFlatePerf, FixedHuffmanPerf)
 {
 	testroundtripperf(bufferUncompressed, 1);

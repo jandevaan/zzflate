@@ -201,7 +201,7 @@ struct EncoderState
 		return lengths;
 	}
 
-	int CalculateTree(const std::vector<int>& symbolFreqs, int minFreq, std::vector<treeItem>& tree)
+	static int CalculateTree(const std::vector<int>& symbolFreqs, int minFreq, std::vector<treeItem>& tree)
 	{
 		tree.clear();
 		std::vector<record> records;
@@ -256,7 +256,7 @@ struct EncoderState
 		return maxLength;
 	}
 
-	std::vector<int> calcLengths(const std::vector<int>& symbolFreqs, int maxLength)
+	static std::vector<int> calcLengths(const std::vector<int>& symbolFreqs, int maxLength)
 	{
 		int minFreq = 0;
 		std::vector<treeItem> tree;
@@ -334,18 +334,18 @@ struct EncoderState
 	}
 
 
-	std::vector<int> calcMetaLengths(std::vector<int> lengths, std::vector<int> distances)
+	static std::vector<int> calcMetaLengths(std::vector<int> lengths, std::vector<int> distances)
 	{
 		std::vector<int> lengthFreqs = std::vector<int>(19, 0);
 
 		for(auto l : lengths)
 		{
-			lengthFreqs[l] = 1;
+			lengthFreqs[l] += 1;
 		}
 
 		for (auto l : distances)
 		{
-			lengthFreqs[l] = 1;
+			lengthFreqs[l] += 1;
 		}
 
 		auto metacodesLengths = calcLengths(lengthFreqs, 7);
@@ -354,12 +354,101 @@ struct EncoderState
 		return metacodesLengths;
 	}
 
-	void prepareCodes(const std::vector<int>& symbolFreqs, const std::vector<int>& distanceFrequencies)
+	struct lenghtRecord
+	{
+		lenghtRecord(int val, int load)
+		{
+			value = uint8_t(val);
+			payLoad = uint8_t(load);
+		}
+		uint8_t value;
+		uint8_t payLoad;
+	};
+
+	void emitValues( std::vector<lenghtRecord>& vector, int value, int count)
+	{
+		if (count == 0)
+			return;
+
+		if (value == 0)
+		{
+			while (count >= 3)
+			{
+				int writeCount = std::min(count, 138);
+				count -= writeCount;
+				vector.push_back(lenghtRecord( writeCount < 11 ? 17 : 18,  writeCount));
+			}			
+		}
+		else
+		{
+			vector.push_back({ value, 0 });
+			count--;
+			while (count >= 3)
+			{
+				int writeCount = std::min(count, 6);
+				count -= writeCount;
+				vector.push_back({ 16, writeCount });
+			}
+		}
+
+		for (int i = 0; i < count; ++i)
+		{
+			vector.push_back({ value, 0 });
+		}
+
+	}
+
+	std::vector<lenghtRecord> FromLengths(const std::vector<int> lengths, std::vector<int>& freqs)
+	{
+		std::vector<lenghtRecord> records;
+		int lastValue = -1;
+		int lastValueCount = 0;
+		for (auto n : lengths)
+		{
+			if (n == lastValue)
+			{
+				lastValueCount++;
+				continue;
+			}
+
+			emitValues(records, lastValue, lastValueCount);
+			lastValue = n;
+			lastValueCount = 1;
+		}
+
+		emitValues(records, lastValue, lastValueCount);
+
+		for (lenghtRecord element : records)
+		{
+			freqs[element.value]++;
+		}
+		return records;
+	}
+
+	void writelengths(const std::vector<lenghtRecord>& vector, const std::vector<code>& codes)
+	{
+		for(auto c: vector)
+		{
+			stream.AppendToBitStream(codes[c.value]);
+			switch (c.value)
+			{
+			case 16: stream.AppendToBitStream(c.payLoad - 3, 2); break;
+			case 17: stream.AppendToBitStream(c.payLoad - 3, 3); break;
+			case 18: stream.AppendToBitStream(c.payLoad - 11, 7); break;
+			default: break;
+			}
+		}
+	}
+
+	  void prepareCodes(const std::vector<int>& symbolFreqs, const std::vector<int>& distanceFrequencies)
 	{
 		auto symLengths = calcLengths(symbolFreqs, 15);
 		auto distLengths = calcLengths(distanceFrequencies, 15);
 
-		auto metacodesLengths = calcMetaLengths(symLengths, distLengths); 
+		std::vector<int> metaFreqs(19, 0);
+		auto symbolMetaCodes = FromLengths(symLengths, metaFreqs);
+		auto distMetaCodes = FromLengths(distLengths, metaFreqs);
+		std::vector<int> metacodesLengths = calcLengths(metaFreqs, 7);
 				 
 		stream.AppendToBitStream(int32_t(symLengths.size() - 257), 5);
 		stream.AppendToBitStream(int32_t(distLengths.size() - 1), 5); // distance code count
@@ -367,26 +456,14 @@ struct EncoderState
 
 		for (int i = 0; i < 19; ++i)
 		{
-			int length = metacodesLengths[order[i]];
-			stream.AppendToBitStream(length, 3);
+			stream.AppendToBitStream(metacodesLengths[order[i]], 3);
 		}
 
 		auto metaCodes = huffman::generate(metacodesLengths);
 
-		for (auto len : symLengths)
-		{
-			auto meta_code = metaCodes[len];
-			if (meta_code.length == 0)
-			{
-				assert(false);
-			}
-			stream.AppendToBitStream(meta_code);
-		}
-			
-		for (auto d : distLengths)
-		{
-			stream.AppendToBitStream(metaCodes[d]);
-		}
+		writelengths(symbolMetaCodes, metaCodes);
+		writelengths(distMetaCodes, metaCodes);
+ 
 
 		auto symcodes = huffman::generate(symLengths);
 		 
@@ -491,13 +568,7 @@ struct EncoderState
 					stream.AppendToBitStream(lcodes[matchLength].bits, lcodes[matchLength].length);
 					WriteDistance(delta);
 
-					int nextI = i + matchLength - 1;
-					while (i < nextI)
-					{ 
- 						//hashtable[CalcHash(source + i)] = i; 
-						i ++; 
-					}
-					 
+					i += matchLength - 1;					 
 					continue;
 				}
 			}
