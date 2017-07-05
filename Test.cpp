@@ -235,6 +235,16 @@ TEST(ZzFlate, Canterbury)
 	
 }
 
+TEST(ZzFlate, CanterburyNoCompression)
+{
+	for (auto x : directory("c://dev//corpus"))
+	{
+		testroundtrip(readFile(x), 0, x);
+	}
+
+}
+
+
 
 TEST(ZzFlate, CanterburyZlib)
 {

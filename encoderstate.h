@@ -98,13 +98,19 @@ struct EncoderState
 		{
 			h = -100000;
 		}
-		
+		if (level == 0)
+		{
+			_type = Uncompressed;
+		}
 		if (level == 1)
 		{
+			_type = FixedHuffman;
 			InitFixedHuffman();
+			comprecords.reserve(10000);
 		}
-		else if (level == 2)
+		else  
 		{
+			_type = UserDefinedHuffman;
 			comprecords.reserve(10000);
 		}
 	}
@@ -365,7 +371,7 @@ struct EncoderState
 		uint8_t payLoad;
 	};
 
-	void emitValues( std::vector<lenghtRecord>& vector, int value, int count)
+	void AddRecords( std::vector<lenghtRecord>& vector, int value, int count)
 	{
 		if (count == 0)
 			return;
@@ -401,22 +407,22 @@ struct EncoderState
 	std::vector<lenghtRecord> FromLengths(const std::vector<int> lengths, std::vector<int>& freqs)
 	{
 		std::vector<lenghtRecord> records;
-		int lastValue = -1;
-		int lastValueCount = 0;
+		int currentValue = -1;
+		int count = 0;
 		for (auto n : lengths)
 		{
-			if (n == lastValue)
+			if (n == currentValue)
 			{
-				lastValueCount++;
+				count++;
 				continue;
 			}
 
-			emitValues(records, lastValue, lastValueCount);
-			lastValue = n;
-			lastValueCount = 1;
+			AddRecords(records, currentValue, count);
+			currentValue = n;
+			count = 1;
 		}
 
-		emitValues(records, lastValue, lastValueCount);
+		AddRecords(records, currentValue, count);
 
 		for (lenghtRecord element : records)
 		{
@@ -440,43 +446,8 @@ struct EncoderState
 		}
 	}
 
-	  void prepareCodes(const std::vector<int>& symbolFreqs, const std::vector<int>& distanceFrequencies)
+	void BuildLengthCodesCache()
 	{
-		auto symLengths = calcLengths(symbolFreqs, 15);
-		auto distLengths = calcLengths(distanceFrequencies, 15);
-
-		std::vector<int> metaFreqs(19, 0);
-		auto symbolMetaCodes = FromLengths(symLengths, metaFreqs);
-		auto distMetaCodes = FromLengths(distLengths, metaFreqs);
-		std::vector<int> metacodesLengths = calcLengths(metaFreqs, 7);
-				 
-		stream.AppendToBitStream(int32_t(symLengths.size() - 257), 5);
-		stream.AppendToBitStream(int32_t(distLengths.size() - 1), 5); // distance code count
-		stream.AppendToBitStream(int32_t(metacodesLengths.size() - 4), 4);
-
-		for (int i = 0; i < 19; ++i)
-		{
-			stream.AppendToBitStream(metacodesLengths[order[i]], 3);
-		}
-
-		auto metaCodes = huffman::generate(metacodesLengths);
-
-		writelengths(symbolMetaCodes, metaCodes);
-		writelengths(distMetaCodes, metaCodes);
- 
-
-		auto symcodes = huffman::generate(symLengths);
-		 
-		for (int i = 0; i < 286; ++i)
-		{
-			codes[i] = { (char)symcodes[i].length, (unsigned short)symcodes[i].bits };
-		}
-
-
-		auto distcodes = huffman::generate(distLengths);
-		std::copy(distcodes.begin(), distcodes.end(), dcodes);
-
-
 		for (int i = 0; i < 259; ++i)
 		{
 			auto lengthRecord = lengthTable[i];
@@ -486,6 +457,48 @@ struct EncoderState
 				code.length + lengthRecord.extraBitLength,
 				(lengthRecord.extraBits << code.length) | (unsigned int)code.bits };
 		}
+	}
+
+    void DetermineAndWriteCodes(const std::vector<int>& symbolFreqs, const std::vector<int>& distanceFrequencies)
+	{ 
+		std::vector<int> metaCodeFrequencies(19, 0);
+
+		auto symbolLengths = calcLengths(symbolFreqs, 15);
+		auto symbolMetaCodes = FromLengths(symbolLengths, metaCodeFrequencies);
+		
+		auto distLengths = calcLengths(distanceFrequencies, 15);
+		auto distMetaCodes = FromLengths(distLengths, metaCodeFrequencies);
+		
+		std::vector<int> metacodesLengths = calcLengths(metaCodeFrequencies, 7);
+		auto metaCodes = huffman::generate(metacodesLengths);
+
+		// write the codes
+
+		stream.AppendToBitStream(int32_t(symbolLengths.size() - 257), 5);
+		stream.AppendToBitStream(int32_t(distLengths.size() - 1), 5); // distance code count
+		stream.AppendToBitStream(int32_t(metacodesLengths.size() - 4), 4);
+		
+		for (int i = 0; i < 19; ++i)
+		{
+			stream.AppendToBitStream(metacodesLengths[order[i]], 3);
+		}
+
+		writelengths(symbolMetaCodes, metaCodes);
+		writelengths(distMetaCodes, metaCodes);
+ 
+		// update code tables 
+
+		auto symbolCodes = huffman::generate(symbolLengths);
+		 
+		for (int i = 0; i < 286; ++i)
+		{
+			codes[i] = { (char)symbolCodes[i].length, (unsigned short)symbolCodes[i].bits };
+		}
+
+		auto distcodes = huffman::generate(distLengths);
+		std::copy(distcodes.begin(), distcodes.end(), dcodes);
+
+		BuildLengthCodesCache();
 	}
 
 	 static unsigned int CalcHash(const unsigned char * source )
@@ -585,7 +598,7 @@ struct EncoderState
 	}
 
  
-	int WriteBlockUserHuffman(int byteCount, bool final)
+	int WriteBlock2Pass(int byteCount, bool final)
 	{
 		bufferLength = byteCount;
 		auto length = (byteCount < 65536 && final) ? byteCount : std::min(256000, byteCount - 258);
@@ -640,12 +653,15 @@ struct EncoderState
 		comprecords.push_back({(int)(length - backRefEnd), 0,0});
 
 		FixHashTable(length);
+		 
+		StartBlock(_type, final);
 
-		StartBlock(UserDefinedHuffman, final);
+		if (_type == UserDefinedHuffman)
+		{
+			DetermineAndWriteCodes(symbolFreqs, distanceFrequencies);
+		}
 
-		prepareCodes(symbolFreqs, distanceFrequencies);
-		
-		WriteRecords(source, comprecords, UserDefinedHuffman, final != 0);
+		WriteRecords(source, comprecords, _type, final);
 
 		stream.AppendToBitStream(codes[256]);
 
@@ -657,16 +673,16 @@ struct EncoderState
 
 	int writeUncompressedBlock(int byteCount, int final)	
 	{
-		auto length = byteCount;
-		StartBlock(Uncompressed, final);
-		stream.WriteU16(int16_t(length));
-		stream.WriteU16(int16_t(~length));
+		uint16_t length = std::min(byteCount, 0xFFFF);
+		StartBlock(Uncompressed, final && length == byteCount);
+		stream.WriteU16(length);
+		stream.WriteU16(uint16_t(~length));
 		stream.Flush();
 
 		memcpy(stream._stream, source, length);
 		stream._stream += length;
 
-		return (int)length;
+		return length;
 	}
  
 
@@ -683,7 +699,7 @@ struct EncoderState
 		}
 		else if (_level == 2)
 		{
-			return WriteBlockUserHuffman(length, final);
+			return WriteBlock2Pass(length, final);
 		}
 	 
 		return -1;
