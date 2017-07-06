@@ -12,6 +12,8 @@ namespace
 	const int hashBits = 16;
 	const unsigned hashSize = 1 << hashBits;
 	const unsigned hashMask = hashSize -1;
+	const int maxRecords = 20000;
+
 } 
 
 struct record
@@ -106,12 +108,12 @@ struct EncoderState
 		{
 			_type = FixedHuffman;
 			InitFixedHuffman();
-			comprecords.reserve(10000);
+			comprecords.resize(maxRecords);
 		}
 		else  
 		{
 			_type = UserDefinedHuffman;
-			comprecords.reserve(10000);
+			comprecords.resize(maxRecords);
 		}
 	}
 
@@ -597,19 +599,19 @@ struct EncoderState
 		return (int)byteCount;
 	}
 
- 
 	int WriteBlock2Pass(int byteCount, bool final)
 	{
 		bufferLength = byteCount;
 		auto length = (byteCount < 65536 && final) ? byteCount : std::min(256000, byteCount - 258);
-		comprecords.clear();
+		comprecords.resize(maxRecords);
 
 		auto symbolFreqs = std::vector<int>(286,0);
 		
 		auto distanceFrequencies = std::vector<int>(30, 1);		
-		int backRefEnd = 0;	
-		unsigned int hashSeed = 0;
-		 
+		int backRefEnd = 0;
+
+		int recordCount = 0;
+
 		for (int i = 0; i < length; ++i)
 		{
 			auto newHash = CalcHash(source + i);
@@ -623,7 +625,7 @@ struct EncoderState
 				if (matchLength >= 3)
 				{
 					symbolFreqs[lengthTable[matchLength].code]++;
-					comprecords.push_back({ (int)(i - backRefEnd), (unsigned short)(i - offset), (unsigned short)matchLength });
+					comprecords[recordCount++] = {  (i - backRefEnd), (unsigned short)(i - offset), (unsigned short)matchLength };
 					int nextI = i + matchLength - 1;
 					while (i < nextI)
 					{
@@ -632,7 +634,13 @@ struct EncoderState
 					}
 
 				
-					backRefEnd = i + 1;
+					backRefEnd = nextI + 1;
+
+					if (recordCount == maxRecords - 1)
+					{
+						length = i;
+						break;
+					}
 
 					continue;
 				}
@@ -650,8 +658,8 @@ struct EncoderState
 			final = 0;
 		}
 
-		comprecords.push_back({(int)(length - backRefEnd), 0,0});
-
+		comprecords[recordCount++] = {(int)(length - backRefEnd), 0,0};
+		comprecords.resize(recordCount);
 		FixHashTable(length);
 		 
 		StartBlock(_type, final);

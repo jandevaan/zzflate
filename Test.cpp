@@ -100,6 +100,7 @@ std::vector<unsigned char> bufferCompressed = std::vector<unsigned char>(1500000
 
 int testroundtripperf(std::vector<unsigned char>& bufferUncompressed, int compression)
 { 
+	bufferCompressed.reserve(bufferUncompressed.size() * 1.01);
 	auto testSize = bufferUncompressed.size();
 	
 	uLongf comp_len;
@@ -226,7 +227,7 @@ TEST(ZzFlate, UserHuffman)
 
  
 
-TEST(ZzFlate, Canterbury)
+TEST(ZzFlate, CanterburyZzflate)
 {
 	for(auto x : directory("c://dev//corpus"))
 	{
@@ -255,19 +256,13 @@ TEST(ZzFlate, CanterburyZlib)
 
 }
   
-TEST(ZzFlate, SimpleUncompressed)
+ 
+
+
+TEST(ZzxFlatePerf, UncompressedPerf)
 {
-	auto bufferUncompressed = std::vector<unsigned char>(20, 3);
-
-	for (int i = 0; i < 3333; ++i)
-	{
-		bufferUncompressed.push_back(i * 39034621);
-	}
-
-	testroundtrip(bufferUncompressed, 0);
-
+	testroundtripperf(bufferUncompressed, 0);
 }
-
  
 TEST(ZzxFlatePerf, UserHuffmanPerf)
 {
