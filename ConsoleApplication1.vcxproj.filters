@@ -33,6 +33,9 @@
     <ClInclude Include="zzflate.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="userhuffman.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="adler.cpp">
@@ -51,6 +54,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="TestBitOutput.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="userhuffman.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

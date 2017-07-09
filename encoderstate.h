@@ -16,11 +16,7 @@ namespace
 
 } 
 
-struct record
-{
-	int frequency;
-	int id;
-};
+#include "userhuffman.h"
 
 
 struct lengthRecord
@@ -32,9 +28,8 @@ struct lengthRecord
 
 
 struct distanceRecord
-{
-	unsigned char code;
-	unsigned char bits;
+{ 
+	unsigned short bits;
 	unsigned short distanceStart;
 };
 
@@ -44,19 +39,9 @@ extern lengthRecord  lengthTable[259];
 
 extern code  lengthCodes[259];
 
-extern const distanceRecord distanceTable[32];
-extern const int distanceTable2[32];
+extern const distanceRecord distanceTable[32]; 
 extern unsigned char distanceLut[32769];
 
-class greater
-{
-public:
-	bool operator()(const record _Left, const record _Right) const
-	{
-		return _Left.frequency > _Right.frequency;
-	}
-};
- 
 enum CurrentBlockType
 {
 	Uncompressed = 0b00,
@@ -66,9 +51,9 @@ enum CurrentBlockType
  
 struct compressionRecord
 {
-	int literals;
-	unsigned short backoffset;
-	unsigned short length;
+	int32_t literals;
+	uint16_t backoffset;
+	uint16_t length;
 };
 
 
@@ -177,117 +162,6 @@ struct EncoderState
 		_type = type;		
 	}
 	 
-	
-
-	struct treeItem
-	{
-		int frequency;
-		int left;
-		int right;
-		int bits;
-	};
-
-
-	static std::vector<int> Lengths(const std::vector<treeItem>& tree )
-	{
-
-		std::vector<int> lengths = std::vector<int>();
-
-		for (auto t : tree)
-		{
-			if (t.right != ~0)
-				break;
-
-			if (lengths.size() <= t.left)
-			{
-				lengths.resize(t.left + 1);
-			}
-			
-			lengths[t.left] = t.bits;
-		}
-
-		return lengths;
-	}
-
-	static int CalculateTree(const std::vector<int>& symbolFreqs, int minFreq, std::vector<treeItem>& tree)
-	{
-		tree.clear();
-		std::vector<record> records;
-		for (int i = 0; i < symbolFreqs.size(); ++i)
-		{
-			if (symbolFreqs[i] == 0)
-			{
-				tree.push_back({ 0, i, -1 });
-				continue;
-			}
-
-			int freq =  std::max(minFreq, symbolFreqs[i]);
-			tree.push_back({ freq, i, -1 });			 
-			record rec = { freq, i };
-			records.push_back(rec);
-			
-		}
-
-		greater pred = greater();
-
-		std::make_heap(records.begin(), records.end(), pred);
-
-		while (records.size() >= 2)
-		{
-			pop_heap(records.begin(), records.end(), pred);
-			record a = records.back();
-			records.pop_back();
-			
-			pop_heap(records.begin(), records.end(), pred);
-			record b = records.back();
-			records.pop_back();
-
-			auto sumfreq = a.frequency + b.frequency;
-			tree.push_back({ sumfreq, a.id, b.id });
-
-			records.push_back({ sumfreq, (int)(tree.size() - 1) });
-			push_heap(records.begin(), records.end(), pred);
-		}
-
-		int maxLength = 0;
-		for (auto i = tree.size() - 1; i != 0; --i)
-		{
-			auto item = tree[i];
-			if (item.right == -1)
-			{
-				maxLength = std::max(maxLength, item.bits);
-				continue;
-			}
-			tree[item.left].bits = item.bits + 1;
-			tree[item.right].bits = item.bits + 1;
-		}
-		return maxLength;
-	}
-
-	static std::vector<int> calcLengths(const std::vector<int>& symbolFreqs, int maxLength)
-	{
-		int minFreq = 0;
-		std::vector<treeItem> tree;
-		while (true)
-		{
-			int max = CalculateTree(symbolFreqs, minFreq, tree);
-
-			if (max <= maxLength)
-				return Lengths(tree);
-		    
-			int total = 0;
-			for(auto n : symbolFreqs)
-			{
-				total += n;
-			}
-			
-			minFreq += total / (1 << maxLength);
-		}
-	}
-
-
-
-
 
 	int FindBackRef(int index, int end, int* offset)
 	{
@@ -319,9 +193,8 @@ struct EncoderState
 		}
 	}
 
-	void WriteRecords(const unsigned char* source, const std::vector<compressionRecord>& vector, CurrentBlockType type, bool final)
+	void WriteRecords(const unsigned char* source, const std::vector<compressionRecord>& vector)
 	{
-
 		int offset = 0;
 		for (auto r : vector)
 		{
@@ -333,7 +206,7 @@ struct EncoderState
 
 			if (r.length != 0)
 			{
-				stream.AppendToBitStream(lcodes[r.length].bits, lcodes[r.length].length);
+				stream.AppendToBitStream(lcodes[r.length]);
 				WriteDistance(r.backoffset);
 			}
 
@@ -341,112 +214,6 @@ struct EncoderState
 		}
 	}
 
-
-	static std::vector<int> calcMetaLengths(std::vector<int> lengths, std::vector<int> distances)
-	{
-		std::vector<int> lengthFreqs = std::vector<int>(19, 0);
-
-		for(auto l : lengths)
-		{
-			lengthFreqs[l] += 1;
-		}
-
-		for (auto l : distances)
-		{
-			lengthFreqs[l] += 1;
-		}
-
-		auto metacodesLengths = calcLengths(lengthFreqs, 7);
-		metacodesLengths.resize(19);
-
-		return metacodesLengths;
-	}
-
-	struct lenghtRecord
-	{
-		lenghtRecord(int val, int load)
-		{
-			value = uint8_t(val);
-			payLoad = uint8_t(load);
-		}
-		uint8_t value;
-		uint8_t payLoad;
-	};
-
-	void AddRecords( std::vector<lenghtRecord>& vector, int value, int count)
-	{
-		if (count == 0)
-			return;
-
-		if (value == 0)
-		{
-			while (count >= 3)
-			{
-				int writeCount = std::min(count, 138);
-				count -= writeCount;
-				vector.push_back(lenghtRecord( writeCount < 11 ? 17 : 18,  writeCount));
-			}			
-		}
-		else
-		{
-			vector.push_back({ value, 0 });
-			count--;
-			while (count >= 3)
-			{
-				int writeCount = std::min(count, 6);
-				count -= writeCount;
-				vector.push_back({ 16, writeCount });
-			}
-		}
-
-		for (int i = 0; i < count; ++i)
-		{
-			vector.push_back({ value, 0 });
-		}
-
-	}
-
-	std::vector<lenghtRecord> FromLengths(const std::vector<int> lengths, std::vector<int>& freqs)
-	{
-		std::vector<lenghtRecord> records;
-		int currentValue = -1;
-		int count = 0;
-		for (auto n : lengths)
-		{
-			if (n == currentValue)
-			{
-				count++;
-				continue;
-			}
-
-			AddRecords(records, currentValue, count);
-			currentValue = n;
-			count = 1;
-		}
-
-		AddRecords(records, currentValue, count);
-
-		for (lenghtRecord element : records)
-		{
-			freqs[element.value]++;
-		}
-		return records;
-	}
-
-	void writelengths(const std::vector<lenghtRecord>& vector, const std::vector<code>& codes)
-	{
-		for(auto c: vector)
-		{
-			stream.AppendToBitStream(codes[c.value]);
-			switch (c.value)
-			{
-			case 16: stream.AppendToBitStream(c.payLoad - 3, 2); break;
-			case 17: stream.AppendToBitStream(c.payLoad - 3, 3); break;
-			case 18: stream.AppendToBitStream(c.payLoad - 11, 7); break;
-			default: break;
-			}
-		}
-	}
 
 	void BuildLengthCodesCache()
 	{
@@ -458,6 +225,22 @@ struct EncoderState
 			lcodes[i] = {
 				code.length + lengthRecord.extraBitLength,
 				(lengthRecord.extraBits << code.length) | (unsigned int)code.bits };
+		}
+	}
+
+
+	void writelengths(const std::vector<lenghtRecord>& vector, const std::vector<code>& codes)
+	{
+		for (auto c : vector)
+		{
+			stream.AppendToBitStream(codes[c.value]);
+			switch (c.value)
+			{
+			case 16: stream.AppendToBitStream(c.payLoad - 3, 2); break;
+			case 17: stream.AppendToBitStream(c.payLoad - 3, 3); break;
+			case 18: stream.AppendToBitStream(c.payLoad - 11, 7); break;
+			default: break;
+			}
 		}
 	}
 
@@ -625,7 +408,7 @@ struct EncoderState
 				if (matchLength >= 3)
 				{
 					symbolFreqs[lengthTable[matchLength].code]++;
-					comprecords[recordCount++] = {  (i - backRefEnd), (unsigned short)(i - offset), (unsigned short)matchLength };
+					comprecords[recordCount++] = {  (i - backRefEnd), uint16_t(i - offset), uint16_t(matchLength) };
 					int nextI = i + matchLength - 1;
 					while (i < nextI)
 					{
@@ -633,7 +416,6 @@ struct EncoderState
 						i++;
 					}
 
-				
 					backRefEnd = nextI + 1;
 
 					if (recordCount == maxRecords - 1)
@@ -669,7 +451,7 @@ struct EncoderState
 			DetermineAndWriteCodes(symbolFreqs, distanceFrequencies);
 		}
 
-		WriteRecords(source, comprecords, _type, final);
+		WriteRecords(source, comprecords);
 
 		stream.AppendToBitStream(codes[256]);
 
