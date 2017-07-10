@@ -99,8 +99,7 @@ std::vector<unsigned char> bufferCompressed = std::vector<unsigned char>(1500000
 
 int testroundtripperf(std::vector<unsigned char>& bufferUncompressed, int compression)
 { 
-	bufferCompressed.reserve(bufferUncompressed.size() * 1.01);
-	auto testSize = bufferUncompressed.size();
+	bufferCompressed.reserve(bufferUncompressed.size() * 1.01); 
 	
 	uLongf comp_len;
 

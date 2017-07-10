@@ -4,18 +4,63 @@
 #include <cstdint>
 #include <cassert>
 
+
+template <class TDest, class TSource>
+TDest int_cast(TSource value)
+{
+	TDest result = value;
+	assert(result == value);// && sign(value) == sign(result));
+	return result;
+}
+
+
+template <class TValue>
+class safeint
+{
+public:
+	safeint(TValue v) { value = v; }
+
+	template <class TDest>
+	TDest convert()
+	{
+		return int_cast<TDest, TValue>(value);
+	}
+	 
+	template <class TDest> operator TDest() { return int_cast<TDest, TValue>(value); }
+
+	TValue value;
+};
+
+
+
+template <class TValue>
+safeint<TValue> safecast(TValue v) { return safeint<TValue>(v); }
+
 uint32_t adler32x(uint32_t startValue, const unsigned char *data, size_t len);
 
 struct code
-{ 
-	int length;
-	unsigned int bits;
+{  
+	code() = default;
+	code(int length, uint32_t bits)
+	{
+		this->length = safecast(length);
+		this->bits = bits;
+	}
+	int32_t length;
+	uint32_t bits;
 };
 
 struct scode
 {
-	short length;
-	unsigned short bits;
+	scode() = default;
+
+	scode(int length, int bits)
+	{
+		this->length = safecast(length);
+		this->bits = safecast(bits);
+	}
+	int16_t length;
+	uint16_t bits;
 };
 
 
@@ -65,7 +110,7 @@ public:
 			return;
 
 		_usedBitCount -= 32;
-		write((uint32_t)_bitBuffer);
+		write(uint32_t(_bitBuffer));
 		_bitBuffer = _bitBuffer >> 32;
 	}
 
