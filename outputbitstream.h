@@ -8,7 +8,7 @@
 template <class TDest, class TSource>
 TDest int_cast(TSource value)
 {
-	TDest result = value;
+	TDest result = TDest(value);
 	assert(result == value);// && sign(value) == sign(result));
 	return result;
 }
