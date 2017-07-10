@@ -257,10 +257,10 @@ struct EncoderState
 		BuildLengthCodesCache();
 	}
 
-	 static unsigned int CalcHash(const unsigned char * source )
+	 static unsigned int CalcHash(const unsigned char * ptr )
 	{
-		const uint32_t* source32 = reinterpret_cast<const uint32_t*>(source);
-		auto val = (*source32 >> 8) * 0x00d68664u;
+		const uint32_t* ptr32 = reinterpret_cast<const uint32_t*>(ptr);
+		auto val = (*ptr32 >> 8) * 0x00d68664u;
   
 		return val >> (32 - hashBits);;
 	}
@@ -281,10 +281,8 @@ struct EncoderState
 		return maxLength;
 	}
 
-    __forceinline int countMatches(int i, int offset)
+    __forceinline int countMatches(const unsigned char* a, const unsigned char* b)
 	{
-		auto a = source + i;
-		auto b = source + offset;
 
 		int matchLength = 0;
 
@@ -332,7 +330,7 @@ struct EncoderState
 			auto delta = i - offset;
 			if (unsigned(delta) < 0x8000)
 			{
-				auto matchLength = countMatches(i, offset);
+				auto matchLength = countMatches(source + i, source + offset);
 				if (matchLength >= 3)
 				{
 					stream.AppendToBitStream(lcodes[matchLength].bits, lcodes[matchLength].length);
@@ -375,8 +373,9 @@ struct EncoderState
 			 
 			if (i - 32768 < offset)
 			{
-				auto matchLength = countMatches(i, offset);
-
+				auto matchLength = countMatches(source + i, source + offset);
+				 
+								
 				if (matchLength >= 3)
 				{
 					symbolFreqs[lengthTable[matchLength].code]++;
