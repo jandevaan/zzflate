@@ -72,7 +72,7 @@ struct EncoderState
 
 	
 	scode codes[288]; // literals
-	code lcodes[259]; // codes to send lengths (symbol + extra bits for all 258)
+	code lcodes[259]; // table to send lengths (symbol + extra bits for all 258)
 	code dcodes[32];
 	int hashtable[hashSize];
 
@@ -200,11 +200,11 @@ struct EncoderState
 	}
 
 
-	void writelengths(const std::vector<lenghtRecord>& vector, const std::vector<code>& codes)
+	void writelengths(const std::vector<lenghtRecord>& vector, const std::vector<code>& table)
 	{
 		for (auto c : vector)
 		{
-			stream.AppendToBitStream(codes[c.value]);
+			stream.AppendToBitStream(table[c.value]);
 			switch (c.value)
 			{
 			case 16: stream.AppendToBitStream(c.payLoad - 3, 2); break;
@@ -228,7 +228,7 @@ struct EncoderState
 		std::vector<int> metacodesLengths = calcLengths(metaCodeFrequencies, 7);
 		auto metaCodes = huffman::generate(metacodesLengths);
 
-		// write the codes
+		// write the table
 
 		stream.AppendToBitStream(safecast(symbolLengths.size() - 257), 5);
 		stream.AppendToBitStream(safecast(distLengths.size() - 1), 5); // distance code count
@@ -435,7 +435,7 @@ struct EncoderState
 
 	int writeUncompressedBlock(int byteCount, int final)	
 	{
-		uint16_t length = std::min(byteCount, 0xFFFF);
+		uint16_t length = safecast(std::min(byteCount, 0xFFFF));
 		StartBlock(Uncompressed, final && length == byteCount);
 		stream.WriteU16(length);
 		stream.WriteU16(uint16_t(~length));

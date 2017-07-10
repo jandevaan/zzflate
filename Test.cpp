@@ -100,9 +100,9 @@ std::vector<unsigned char> bufferCompressed = std::vector<unsigned char>(1500000
 
 int testroundtripperf(std::vector<unsigned char>& bufferUncompressed, int compression)
 { 
-	bufferCompressed.reserve(bufferUncompressed.size() * 1.01); 
+	bufferCompressed.reserve(int(bufferUncompressed.size() * 1.01)); 
 	
-	uLongf comp_len;
+	uLongf comp_len = 0;
 
 	std::chrono::steady_clock::time_point times[11];
 
@@ -111,7 +111,7 @@ int testroundtripperf(std::vector<unsigned char>& bufferUncompressed, int compre
 	for (int i = 0; i < 10; ++i)
 	{
 		 
-		comp_len = (uLongf)bufferCompressed.size();
+		comp_len = safecast(bufferCompressed.size());
 		ZzFlateEncode(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
 		times[i + 1] = std::chrono::high_resolution_clock::now();
 	}
@@ -127,15 +127,15 @@ int testroundtripperf(std::vector<unsigned char>& bufferUncompressed, int compre
 }
 
 
-int testroundtripperfzlib(std::vector<unsigned char>& bufferUncompressed, int compression, std::string name = {}, int repeatcount = 10)
+int testroundtripperfzlib(const std::vector<unsigned char>& bufferUncompressed, int compression, std::string name = {}, int repeatcount = 10)
 {
-	uLong source_len = bufferUncompressed.size();
+	uLong source_len = safecast(bufferUncompressed.size());
 	auto testSize = source_len; 
-	uLongf comp_len;
+	uLongf comp_len = 0;
 
 	for (int i = 0; i < repeatcount; ++i)
 	{
-		comp_len = (uLongf)bufferCompressed.size();
+		comp_len = safecast(bufferCompressed.size());
 		compress2(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], source_len, compression);
 	}
 	std::cout << std::fixed;
@@ -173,7 +173,7 @@ int testroundtrip(const std::vector<unsigned char>& bufferUncompressed, int comp
 		EXPECT_EQ(bufferUncompressed[i], decompressed[i]) << "pos " << i;
 	}
 
-	return (int)comp_len;
+	return safecast(comp_len);
 }
 
 
@@ -194,7 +194,7 @@ const unsigned int magictable[64] =
 };
 
 unsigned int bitScanForward(uint64_t b) {
-	return magictable[(uint64_t(b&-(int64_t)b)*magic) >> 58];
+	return magictable[(uint64_t(b&-int64_t(b))*magic) >> 58];
 }
 
 int main(int ac, char* av[])
@@ -263,7 +263,6 @@ TEST(ZzxFlatePerf, UserHuffmanPerf)
 {
 	testroundtripperf(bufferUncompressed, 2);
 }
-
 
 
 TEST(ZzxFlatePerf, FixedHuffmanPerf)

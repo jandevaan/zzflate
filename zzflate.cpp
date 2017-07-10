@@ -126,7 +126,7 @@ void buildLengthLookup()
 
 		for (int j = 0; j < (1 << bits); ++j)
 		{
-			lengthTable[offset++] = { (short)code, (char)j, (char)bits };
+			lengthTable[offset++] = { safecast(code), safecast(j), safecast(bits) };
 		}
 	}
 
@@ -142,7 +142,7 @@ void buildLengthLookup()
 }
 
 
-const int ChooseRunCount(int repeat_count)
+ int ChooseRunCount(int repeat_count)
 {
 	if (repeat_count <= 258)
 		return repeat_count;
@@ -155,7 +155,7 @@ void ZzFlateEncode(unsigned char *dest, unsigned long *destLen, const unsigned c
 {
 	if (level < 0 || level >3)
 	{
-		*destLen = -1;
+		*destLen = ~0ul;
 		return;
 	}
 
@@ -169,9 +169,8 @@ void ZzFlateEncode(unsigned char *dest, unsigned long *destLen, const unsigned c
 
 	state.AddData(source, source + sourceLen, adler);
 	 
-	// end of zlib stream (not block!)	
 	state.stream.WriteBigEndianU32(adler);
 	state.stream.Flush();
 
-	*destLen = (int)state.stream.byteswritten();
+	*destLen = safecast(state.stream.byteswritten());
 }

@@ -4,29 +4,21 @@
 #include <cstdint>
 #include <cassert>
 
-
-template <class TDest, class TSource>
-TDest int_cast(TSource value)
-{
-	TDest result = TDest(value);
-	assert(result == value);// && sign(value) == sign(result));
-	return result;
-}
-
+ 
 
 template <class TValue>
-class safeint
-{
-public:
+struct safeint
+{ 
 	safeint(TValue v) { value = v; }
 
-	template <class TDest>
-	TDest convert()
+	template <class TDest> __forceinline operator TDest()
 	{
-		return int_cast<TDest, TValue>(value);
+		TDest result = TDest(value);
+#ifdef DEBUG
+		assert(result == value);// && sign(value) == sign(result));
+#endif
+		return result;
 	}
-	 
-	template <class TDest> operator TDest() { return int_cast<TDest, TValue>(value); }
 
 	TValue value;
 };
@@ -34,7 +26,7 @@ public:
 
 
 template <class TValue>
-safeint<TValue> safecast(TValue v) { return safeint<TValue>(v); }
+__forceinline safeint<TValue> safecast(TValue v) { return safeint<TValue>(v); }
 
 uint32_t adler32x(uint32_t startValue, const unsigned char *data, size_t len);
 
