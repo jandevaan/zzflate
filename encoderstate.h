@@ -166,14 +166,14 @@ struct EncoderState
 	 
 	 
 
-	void WriteRecords(const unsigned char* source, const std::vector<compressionRecord>& vector)
+	void WriteRecords(const unsigned char* src, const std::vector<compressionRecord>& vector)
 	{
 		int offset = 0;
 		for (auto r : vector)
 		{
 			for (int n = 0; n < r.literals; ++n)
 			{
-				auto value = source[offset + n];
+				auto value = src[offset + n];
 				stream.AppendToBitStream(codes[value]);
 			}
 

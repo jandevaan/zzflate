@@ -11,6 +11,7 @@
 
 
 #include <filesystem>
+#include "outputbitstream.h"
 namespace fs = std::experimental::filesystem;
 
 std::vector<std::string> directory(std::string folder)
@@ -45,7 +46,7 @@ int uncompress(unsigned char *dest, size_t *destLen, const unsigned char *source
 {
 	z_stream stream = {};
 	int err;
-	const unsigned int max = (unsigned int)0 - 1;
+	const unsigned int max = unsigned(~0);
 	size_t left;
 	unsigned char buf[1];    /* for detection of incomplete stream when *destLen == 0 */
 
@@ -148,21 +149,19 @@ int testroundtripperfzlib(std::vector<unsigned char>& bufferUncompressed, int co
 int testroundtrip(const std::vector<unsigned char>& bufferUncompressed, int compression, std::string name = "")
 { 
 	auto testSize = bufferUncompressed.size();
-	auto  bufferCompressed = std::vector<unsigned char>(testSize * 3 / 2 + 5000);
-	uLongf comp_len;
-
-	comp_len = (uLongf)bufferCompressed.size();
-	ZzFlateEncode(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
+	auto  compressed = std::vector<unsigned char>(testSize * 3 / 2 + 5000);
+	uLongf comp_len = safecast(compressed.size());
+	ZzFlateEncode(&compressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
 
 	std::cout << std::fixed;
 	std::cout << std::setprecision(2);
 
 	std::cout << "Reduced " << name << " " << testSize << " to " << ((comp_len) * 100.0 / testSize) << "%\r\n" ;
 
-	/*std::vector<unsigned char> decompressed(testSize);
+	std::vector<unsigned char> decompressed(testSize);
 	auto unc_len = decompressed.size();
 
-	auto error = uncompress(&decompressed[0], &unc_len, &bufferCompressed[0], comp_len);
+	auto error = uncompress(&decompressed[0], &unc_len, &compressed[0], comp_len);
 
 	EXPECT_EQ(error, Z_OK);
 
@@ -172,7 +171,7 @@ int testroundtrip(const std::vector<unsigned char>& bufferUncompressed, int comp
 	for (auto i = 0; i < testSize; ++i)
 	{
 		EXPECT_EQ(bufferUncompressed[i], decompressed[i]) << "pos " << i;
-	}*/
+	}
 
 	return (int)comp_len;
 }

@@ -135,7 +135,7 @@ void buildLengthLookup()
 
 	for (int i = 1; i < 32769; ++i)
 	{
-		distanceLut[i] = EncoderState::FindDistance(i);
+		distanceLut[i] = safecast(EncoderState::FindDistance(i));
 	}
 
 
