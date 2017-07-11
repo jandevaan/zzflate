@@ -119,6 +119,18 @@ struct EncoderState
 	{
 		return code(first.length + second.length, second.bits << first.length | first.bits);
 	}
+
+
+	void CreateMergedLengthCodes()
+	{
+		for (int i = 0; i < 259; ++i)
+		{
+			auto lengthRecord = lengthTable[i];
+
+			lcodes[i] = Merge(codes[lengthRecord.code], 
+			                  code(lengthRecord.extraBitLength, lengthRecord.extraBits)); 
+		}
+	}
 	 
 
 	void InitFixedHuffman()
@@ -136,13 +148,7 @@ struct EncoderState
 			dcodes[i] = code( 5, huffman::reverse(i, 5) );
 		}
 
-		for (int i = 0; i < 259; ++i)
-		{
-			auto lengthRecord = lengthTable[i];
-
-			lcodes[i] = Merge(codes[lengthRecord.code], 
-				code(lengthRecord.extraBitLength, lengthRecord.extraBits)); 
-		}
+		CreateMergedLengthCodes();
  
 	}
 
@@ -188,16 +194,6 @@ struct EncoderState
 	}
 
 
-	void BuildLengthCodesCache()
-	{
-		for (int i = 0; i < 259; ++i)
-		{
-			auto lengthRecord = lengthTable[i];
-			 
-			lcodes[i] = Merge(codes[lengthRecord.code],
-				code(lengthRecord.extraBitLength, lengthRecord.extraBits));
-		}
-	}
 
 
 	void writelengths(const std::vector<lenghtRecord>& vector, const std::vector<code>& table)
@@ -217,15 +213,16 @@ struct EncoderState
 
     void DetermineAndWriteCodes(const std::vector<int>& symbolFreqs, const std::vector<int>& distanceFrequencies)
 	{ 
-		std::vector<int> metaCodeFrequencies(19, 0);
+		std::vector<int> lengthfrequencies(19, 0);
 
 		auto symbolLengths = calcLengths(symbolFreqs, 15);
-		auto symbolMetaCodes = FromLengths(symbolLengths, metaCodeFrequencies);
+		auto symbolMetaCodes = FromLengths(symbolLengths, lengthfrequencies);
 		
 		auto distLengths = calcLengths(distanceFrequencies, 15);
-		auto distMetaCodes = FromLengths(distLengths, metaCodeFrequencies);
+		auto distMetaCodes = FromLengths(distLengths, lengthfrequencies);
 		
-		std::vector<int> metacodesLengths = calcLengths(metaCodeFrequencies, 7);
+		std::vector<int> metacodesLengths = calcLengths(lengthfrequencies, 7);
+	
 		auto metaCodes = huffman::generate(metacodesLengths);
 
 		// write the table
@@ -254,7 +251,7 @@ struct EncoderState
 		auto distcodes = huffman::generate(distLengths);
 		std::copy(distcodes.begin(), distcodes.end(), dcodes);
 
-		BuildLengthCodesCache();
+		CreateMergedLengthCodes();
 	}
 
 	 static unsigned int CalcHash(const unsigned char * ptr )
@@ -281,13 +278,11 @@ struct EncoderState
 		return maxLength;
 	}
 
-    __forceinline int countMatches(const unsigned char* a, const unsigned char* b)
+    __forceinline int countMatches(const unsigned char* a, const unsigned char* b, int maxLength)
 	{
 
 		int matchLength = 0;
-
-		auto maxLength = bufferLength - i;
-
+		 
 		typedef uint64_t compareType;
 
 		if (maxLength >= (sizeof(compareType)))
@@ -330,7 +325,7 @@ struct EncoderState
 			auto delta = i - offset;
 			if (unsigned(delta) < 0x8000)
 			{
-				auto matchLength = countMatches(source + i, source + offset);
+				auto matchLength = countMatches(source + i, source + offset, bufferLength - i);
 				if (matchLength >= 3)
 				{
 					stream.AppendToBitStream(lcodes[matchLength].bits, lcodes[matchLength].length);
@@ -373,7 +368,7 @@ struct EncoderState
 			 
 			if (i - 32768 < offset)
 			{
-				auto matchLength = countMatches(source + i, source + offset);
+				auto matchLength = countMatches(source + i, source + offset, safecast(bufferLength - i));
 				 
 								
 				if (matchLength >= 3)
@@ -472,7 +467,7 @@ struct EncoderState
 		source = start;
 		while (source != end)
 		{  
-			auto bytesWritten = WriteDeflateBlock(int(end - source), true);
+			auto bytesWritten = WriteDeflateBlock(safecast(end - source), true);
 			adler = adler32x(adler, source, bytesWritten);
 			source += bytesWritten;
 		}

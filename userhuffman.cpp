@@ -2,37 +2,17 @@
 #include <vector>
 #include "userhuffman.h"
 #include <algorithm>
+#include "outputbitstream.h"
 
 class greater
 {
 public:
-	bool operator()(const record _Left, const record _Right) const
+	bool operator()(const record a, const record b) const
 	{
-		return _Left.frequency > _Right.frequency;
+		return a.frequency > b.frequency;
 	}
 };
 
-
-static std::vector<int> Lengths(const std::vector<treeItem>& tree)
-{
-
-	std::vector<int> lengths = std::vector<int>();
-
-	for (auto t : tree)
-	{
-		if (t.right != ~0)
-			break;
-
-		if (lengths.size() <= t.left)
-		{
-			lengths.resize(t.left + 1);
-		}
-
-		lengths[t.left] = t.bits;
-	}
-
-	return lengths;
-}
 
 static int CalculateTree(const std::vector<int>& symbolFreqs, int minFreq, std::vector<treeItem>& tree)
 {
@@ -55,7 +35,7 @@ static int CalculateTree(const std::vector<int>& symbolFreqs, int minFreq, std::
 
 	greater pred = greater();
 
-	std::make_heap(records.begin(), records.end(), pred);
+	make_heap(records.begin(), records.end(), pred);
 
 	while (records.size() >= 2)
 	{
@@ -70,7 +50,7 @@ static int CalculateTree(const std::vector<int>& symbolFreqs, int minFreq, std::
 		auto sumfreq = a.frequency + b.frequency;
 		tree.push_back({ sumfreq, a.id, b.id });
 
-		records.push_back({ sumfreq, (int)(tree.size() - 1) });
+		records.push_back({ sumfreq, safecast(tree.size() - 1) });
 		push_heap(records.begin(), records.end(), pred);
 	}
 
@@ -93,13 +73,26 @@ std::vector<int> calcLengths(const std::vector<int>& symbolFreqs, int maxLength)
 {
 	int minFreq = 0;
 	std::vector<treeItem> tree;
+	tree.reserve(2 * symbolFreqs.size());
+
 	while (true)
 	{
 		int max = CalculateTree(symbolFreqs, minFreq, tree);
 
 		if (max <= maxLength)
-			return Lengths(tree);
+		{
+			std::vector<int> lengths = std::vector<int>(symbolFreqs.size());
+			for (auto t : tree)
+			{
+				if (t.right != ~0)
+					break;
 
+				lengths[t.left] = t.bits;
+			}
+
+			return lengths;
+		}
+			
 		int total = 0;
 		for (auto n : symbolFreqs)
 		{
@@ -109,29 +102,6 @@ std::vector<int> calcLengths(const std::vector<int>& symbolFreqs, int maxLength)
 		minFreq += total / (1 << maxLength);
 	}
 }
-
-
-
-std::vector<int> calcMetaLengths(std::vector<int> lengths, std::vector<int> distances)
-{
-	std::vector<int> lengthFreqs = std::vector<int>(19, 0);
-
-	for (auto l : lengths)
-	{
-		lengthFreqs[l] += 1;
-	}
-
-	for (auto l : distances)
-	{
-		lengthFreqs[l] += 1;
-	}
-
-	auto metacodesLengths = calcLengths(lengthFreqs, 7);
-	metacodesLengths.resize(19);
-
-	return metacodesLengths;
-}
-
 
 
 
