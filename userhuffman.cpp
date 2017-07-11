@@ -90,7 +90,7 @@ int calcLengths(const std::vector<int>& symbolFreqs, std::vector<int>& lengths, 
 
 				lengths[t.left] = t.bits;
 			}
-			return lengths.size();
+			return safecast(lengths.size());
 		}
 			
 		int total = 0;

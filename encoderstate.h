@@ -325,7 +325,7 @@ struct EncoderState
 			auto delta = i - offset;
 			if (unsigned(delta) < 0x8000)
 			{
-				auto matchLength = countMatches(source + i, source + offset, bufferLength - i);
+				auto matchLength = countMatches(source + i, source + offset, safecast(bufferLength - i));
 				if (matchLength >= 3)
 				{
 					stream.AppendToBitStream(lcodes[matchLength].bits, lcodes[matchLength].length);
