@@ -214,26 +214,28 @@ struct EncoderState
     void DetermineAndWriteCodes(const std::vector<int>& symbolFreqs, const std::vector<int>& distanceFrequencies)
 	{ 
 		std::vector<int> lengthfrequencies(19, 0);
+		std::vector<int> lengths = std::vector<int>(symbolFreqs.size());
+		calcLengths(symbolFreqs, lengths, 15);
+		auto symbolMetaCodes = FromLengths(lengths, lengthfrequencies);
+		auto symbolCodes = huffman::generate(lengths);
 
-		auto symbolLengths = calcLengths(symbolFreqs, 15);
-		auto symbolMetaCodes = FromLengths(symbolLengths, lengthfrequencies);
-		
-		auto distLengths = calcLengths(distanceFrequencies, 15);
-		auto distMetaCodes = FromLengths(distLengths, lengthfrequencies);
-		
-		std::vector<int> metacodesLengths = calcLengths(lengthfrequencies, 7);
+		calcLengths(distanceFrequencies, lengths, 15);
+		auto distMetaCodes = FromLengths(lengths, lengthfrequencies);
+		auto distcodes = huffman::generate(lengths);
+
+		calcLengths(lengthfrequencies, lengths, 7);
 	
-		auto metaCodes = huffman::generate(metacodesLengths);
+		auto metaCodes = huffman::generate(lengths);
 
 		// write the table
 
-		stream.AppendToBitStream(safecast(symbolLengths.size() - 257), 5);
-		stream.AppendToBitStream(safecast(distLengths.size() - 1), 5); // distance code count
-		stream.AppendToBitStream(safecast(metacodesLengths.size() - 4), 4);
+		stream.AppendToBitStream(safecast(symbolFreqs.size() - 257), 5);
+		stream.AppendToBitStream(safecast(distanceFrequencies.size() - 1), 5); // distance code count
+		stream.AppendToBitStream(safecast(lengthfrequencies.size() - 4), 4);
 		
 		for (int i = 0; i < 19; ++i)
 		{
-			stream.AppendToBitStream(metacodesLengths[order[i]], 3);
+			stream.AppendToBitStream(lengths[order[i]], 3);
 		}
 
 		writelengths(symbolMetaCodes, metaCodes);
@@ -241,14 +243,12 @@ struct EncoderState
  
 		// update code tables 
 
-		auto symbolCodes = huffman::generate(symbolLengths);
 		 
 		for (int i = 0; i < 286; ++i)
 		{
 			codes[i] = scode(symbolCodes[i].length, symbolCodes[i].bits );
 		}
 
-		auto distcodes = huffman::generate(distLengths);
 		std::copy(distcodes.begin(), distcodes.end(), dcodes);
 
 		CreateMergedLengthCodes();

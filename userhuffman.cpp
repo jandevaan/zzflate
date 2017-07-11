@@ -69,7 +69,7 @@ static int CalculateTree(const std::vector<int>& symbolFreqs, int minFreq, std::
 	return maxLength;
 }
 
-std::vector<int> calcLengths(const std::vector<int>& symbolFreqs, int maxLength)
+int calcLengths(const std::vector<int>& symbolFreqs, std::vector<int>& lengths, int maxLength)
 {
 	int minFreq = 0;
 	std::vector<treeItem> tree;
@@ -80,8 +80,9 @@ std::vector<int> calcLengths(const std::vector<int>& symbolFreqs, int maxLength)
 		int max = CalculateTree(symbolFreqs, minFreq, tree);
 
 		if (max <= maxLength)
-		{
-			std::vector<int> lengths = std::vector<int>(symbolFreqs.size());
+		{ 
+			lengths.resize(symbolFreqs.size());
+
 			for (auto t : tree)
 			{
 				if (t.right != ~0)
@@ -89,8 +90,7 @@ std::vector<int> calcLengths(const std::vector<int>& symbolFreqs, int maxLength)
 
 				lengths[t.left] = t.bits;
 			}
-
-			return lengths;
+			return lengths.size();
 		}
 			
 		int total = 0;

@@ -32,5 +32,5 @@ struct lenghtRecord
 
 
 std::vector<lenghtRecord> FromLengths(const std::vector<int> lengths, std::vector<int>& freqs);
-std::vector<int> calcLengths(const std::vector<int>& symbolFreqs, int maxLength);
+int calcLengths(const std::vector<int>& symbolFreqs, std::vector<int>& lengths, int maxLength);
 
