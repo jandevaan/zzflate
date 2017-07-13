@@ -21,12 +21,12 @@ struct intRange
 	int lowerBound; 
 	int upperbound;
 
-	bool isEmpty()
+	bool isEmpty() const
 	{
 		return lowerBound < upperbound;
 	}
 
-	bool inRange(int i)
+	bool inRange(int i) const
 	{
 		return lowerBound <= i && i < upperbound;
 	}
@@ -53,7 +53,7 @@ struct intRange
 		}
 	}
 
-	unsigned int count()
+	unsigned int count() const
 	{
 		return upperbound - lowerBound;
 	}
@@ -106,7 +106,7 @@ std::vector<code> huffman::generate(const std::vector<int>& lengths)
 		{
 			break;
 		}
-		codes[n] = { (short)len, (unsigned short)reversed };
+		codes[n] = { safecast(len), safecast(reversed) };
 		next_code[len]++;
 	}
 
