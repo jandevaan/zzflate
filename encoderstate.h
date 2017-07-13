@@ -228,7 +228,6 @@ struct EncoderState
 		auto metaCodes = huffman::generate(lengths);
 
 		// write the table
-
 		stream.AppendToBitStream(safecast(symbolFreqs.size() - 257), 5);
 		stream.AppendToBitStream(safecast(distanceFrequencies.size() - 1), 5); // distance code count
 		stream.AppendToBitStream(safecast(lengthfrequencies.size() - 4), 4);
