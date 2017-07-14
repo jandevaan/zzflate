@@ -11,7 +11,9 @@
 
 
 #include <filesystem>
-#include "outputbitstream.h"
+ 
+#include "safeint.h"
+
 namespace fs = std::experimental::filesystem;
 
 std::vector<std::string> directory(std::string folder)

@@ -4,29 +4,7 @@
 #include <cstdint>
 #include <cassert>
 
- 
-
-template <class TValue>
-struct safeint
-{ 
-	safeint(TValue v) { value = v; }
-
-	template <class TDest> __forceinline operator TDest()
-	{
-		TDest result = TDest(value);
-#ifdef DEBUG
-		assert(result == value);// && sign(value) == sign(result));
-#endif
-		return result;
-	}
-
-	TValue value;
-};
-
-
-
-template <class TValue>
-__forceinline safeint<TValue> safecast(TValue v) { return safeint<TValue>(v); }
+#include "safeint.h"
 
 uint32_t adler32x(uint32_t startValue, const unsigned char *data, size_t len);
 

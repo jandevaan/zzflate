@@ -85,11 +85,12 @@ struct EncoderState
 		{
 			h = -100000;
 		}
+
 		if (level == 0)
 		{
 			_type = Uncompressed;
 		}
-		if (level == 1)
+		else if (level == 1)
 		{
 			_type = FixedHuffman;
 			InitFixedHuffman();

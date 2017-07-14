@@ -1,6 +1,5 @@
 #include <cassert> 
-#include <gtest/gtest.h>
-#include "outputbitstream.h"
+#include <gtest/gtest.h> 
 
 
 #include "encoderstate.h"
@@ -132,22 +131,10 @@ void buildLengthLookup()
 
 	lengthTable[258] = { 285, 0,0 };
 
-
 	for (int i = 1; i < 32769; ++i)
 	{
 		distanceLut[i] = safecast(EncoderState::FindDistance(i));
-	}
-
-
-}
-
-
- int ChooseRunCount(int repeat_count)
-{
-	if (repeat_count <= 258)
-		return repeat_count;
-
-	return std::min(repeat_count - 3, 258);
+	} 
 }
 
 

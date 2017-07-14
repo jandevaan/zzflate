@@ -165,6 +165,7 @@
     <ClInclude Include="encoderstate.h" />
     <ClInclude Include="huffman.h" />
     <ClInclude Include="outputbitstream.h" />
+    <ClInclude Include="safeint.h" />
     <ClInclude Include="userhuffman.h" />
     <ClInclude Include="zzflate.h" />
   </ItemGroup>

@@ -1,7 +1,7 @@
 
+#include "huffman.h"
 #include "outputbitstream.h"
 #include <gtest/gtest.h>
-#include "huffman.h"
 
 
 TEST(BitOutput, TestSimple)

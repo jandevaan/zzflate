@@ -1,3 +1,4 @@
+
 #include "huffman.h"
 
 
@@ -102,10 +103,9 @@ std::vector<code> huffman::generate(const std::vector<int>& lengths)
 			continue;
 
 		unsigned reversed = reverse(next_code[len], len);
-		if (reverse(reversed, len) != next_code[len])
-		{
+		if (reverse(reversed, len) != next_code[len])		 
 			break;
-		}
+		 
 		codes[n] = { safecast(len), safecast(reversed) };
 		next_code[len]++;
 	}
