@@ -293,8 +293,4 @@ TEST(ZlibPerf, ZlibCompress6)
 {
 	testroundtripperfzlib(bufferUncompressed, 6);
 }
-
-TEST(ZlibPerf, ZlibCompress9)
-{
-	testroundtripperfzlib(bufferUncompressed, 9);
-}
+ 

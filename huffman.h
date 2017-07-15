@@ -10,7 +10,7 @@ namespace  huffman
 	std::vector<int> defaultTableLengths();
 
 	template <class T>
-	std::vector<T> generate2(const std::vector<int>& lengths)
+	std::vector<T> generate(const std::vector<int>& lengths)
 	{
 		int bl_count[MAX_BITS] = {};
 		for (int i = 0; i < lengths.size(); ++i)

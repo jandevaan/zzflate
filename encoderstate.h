@@ -140,14 +140,10 @@ struct EncoderState
 
 	static void InitFixedHuffman()
 	{
-		auto buffer = huffman::generate2<code>(huffman::defaultTableLengths());
+		auto buffer = huffman::generate<scode>(huffman::defaultTableLengths());
 
-	 	for (int i = 0; i < 288; ++i)
-		{
-			codes_f[i] = scode( buffer[i].length, buffer[i].bits );
-		}
-		
-
+		std::copy(buffer.begin(), buffer.end(), codes_f);
+		 
 		for (int i = 0; i < 32; ++i)
 		{
 			dcodes_f[i] = code( 5, huffman::reverse(i, 5) );
@@ -209,7 +205,7 @@ struct EncoderState
 
 
 
-	void writelengths(const std::vector<lenghtRecord>& vector, const std::vector<code>& table)
+	void writelengths(const std::vector<lenghtRecord>& vector, const std::vector<scode>& table)
 	{
 		for (auto c : vector)
 		{
@@ -230,15 +226,15 @@ struct EncoderState
 		std::vector<int> lengths = std::vector<int>(symbolFreqs.size());
 		calcLengths(symbolFreqs, lengths, 15);
 		auto symbolMetaCodes = FromLengths(lengths, lengthfrequencies);
-		auto symbolCodes = huffman::generate2<code>(lengths);
+		auto symbolCodes = huffman::generate<scode>(lengths);
 
 		calcLengths(distanceFrequencies, lengths, 15);
 		auto distMetaCodes = FromLengths(lengths, lengthfrequencies);
-		auto distcodes = huffman::generate2<code>(lengths);
+		auto distcodes = huffman::generate<code>(lengths);
 
 		calcLengths(lengthfrequencies, lengths, 7);
 	
-		auto metaCodes = huffman::generate2<code>(lengths);
+		auto metaCodes = huffman::generate<scode>(lengths);
 
 		// write the table
 		stream.AppendToBitStream(safecast(symbolFreqs.size() - 257), 5);
@@ -254,12 +250,8 @@ struct EncoderState
 		writelengths(distMetaCodes, metaCodes);
  
 		// update code tables 
-
 		 
-		for (int i = 0; i < 286; ++i)
-		{
-			codes[i] = scode(symbolCodes[i].length, symbolCodes[i].bits );
-		}
+		std::copy(symbolCodes.begin(), symbolCodes.end(), codes);
 
 		std::copy(distcodes.begin(), distcodes.end(), dcodes);
 

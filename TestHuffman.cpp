@@ -36,7 +36,7 @@ TEST(ZzFlate, TestDistanceSearch)
 TEST(ZzFlate, GenerateHuffman)
 {
 	auto lengths = huffman::defaultTableLengths();
-	auto result = huffman::generate2<code>(lengths);
+	auto result = huffman::generate<code>(lengths);
 
 	EXPECT_EQ(result[0].bits, huffman::reverse(0b00110000, lengths[0]));
 	EXPECT_EQ(result[143].bits, huffman::reverse(0b10111111, lengths[143]));
