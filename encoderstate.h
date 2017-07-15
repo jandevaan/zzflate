@@ -127,34 +127,34 @@ struct EncoderState
 	}
 
 
-	void CreateMergedLengthCodes()
+	static void CreateMergedLengthCodes(code* lengthCodes, scode* symbolCodes)
 	{
 		for (int i = 0; i < 259; ++i)
 		{
 			auto lengthRecord = lengthTable[i];
 
-			lcodes[i] = Merge(codes[lengthRecord.code], 
+			lengthCodes[i] = Merge(symbolCodes[lengthRecord.code], 
 			                  code(lengthRecord.extraBitLength, lengthRecord.extraBits)); 
 		}
 	}
 	 
 
-	void InitFixedHuffman()
+	static void InitFixedHuffman()
 	{
 		auto buffer = huffman::generate(huffman::defaultTableLengths());
 
 	 	for (int i = 0; i < 288; ++i)
 		{
-			codes[i] = scode( buffer[i].length, buffer[i].bits );
+			codes_f[i] = scode( buffer[i].length, buffer[i].bits );
 		}
 		
 
 		for (int i = 0; i < 32; ++i)
 		{
-			dcodes[i] = code( 5, huffman::reverse(i, 5) );
+			dcodes_f[i] = code( 5, huffman::reverse(i, 5) );
 		}
 
-		CreateMergedLengthCodes();
+		CreateMergedLengthCodes(lcodes_f, codes_f);
  
 	}
 
@@ -167,6 +167,14 @@ struct EncoderState
 		stream.AppendToBitStream(offset - bucket.distanceStart, bucket.bits);
 	}
   
+	void WriteDistanceFixed(int offset)
+	{
+		auto bucketId = distanceLut[offset];
+		stream.AppendToBitStream(dcodes_f[bucketId]);
+
+		auto bucket = distanceTable[bucketId];
+		stream.AppendToBitStream(offset - bucket.distanceStart, bucket.bits);
+	}
 
 	void StartBlock(CurrentBlockType type, int final)
 	{
@@ -256,7 +264,7 @@ struct EncoderState
 
 		std::copy(distcodes.begin(), distcodes.end(), dcodes);
 
-		CreateMergedLengthCodes();
+		CreateMergedLengthCodes(lcodes, codes);
 	}
 
 	 static unsigned int CalcHash(const unsigned char * ptr )
@@ -333,21 +341,21 @@ struct EncoderState
 				auto matchLength = countMatches(source + i, source + offset, safecast(bufferLength - i));
 				if (matchLength >= 3)
 				{
-					stream.AppendToBitStream(lcodes[matchLength].bits, lcodes[matchLength].length);
-					WriteDistance(delta);
+					stream.AppendToBitStream(lcodes_f[matchLength].bits, lcodes_f[matchLength].length);
+					WriteDistanceFixed(delta);
 
 					i += matchLength - 1;					 
 					continue;
 				}
 			}
 
-			auto code = codes[*sourcePtr];
+			auto code = codes_f[*sourcePtr];
 			stream.AppendToBitStream(code.bits, code.length);
 		}
 
 		FixHashTable(byteCount);
 
-		stream.AppendToBitStream(codes[256]);
+		stream.AppendToBitStream(codes_f[256]);
 
 		return byteCount;
 	}

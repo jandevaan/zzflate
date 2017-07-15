@@ -140,7 +140,7 @@ void buildLengthLookup()
 		distanceLut[i] = safecast(EncoderState::FindDistance(i));
 	} 
 
-	//EncoderState::InitFixedHuffman();
+	EncoderState::InitFixedHuffman();
 }
 
 
