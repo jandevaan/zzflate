@@ -69,23 +69,24 @@ struct EncoderState
 	
 	std::vector<compressionRecord> comprecords;
 
-	static scode codes_f[288]; // literals
+	static code codes_f[288]; // literals
 	static code lcodes_f[259]; // table to send lengths (symbol + extra bits for all 258)
 	static code dcodes_f[32];
 
 	
-	scode codes[288]; // literals
+	code codes[288]; // literals
 	code lcodes[259]; // table to send lengths (symbol + extra bits for all 258)
 	code dcodes[32];
 	int hashtable[hashSize];
 
  
-	EncoderState(int level, unsigned char* outputBuffer)
-		: stream(outputBuffer),
+	EncoderState(int level, unsigned char* outputBuffer) :
+		stream(outputBuffer),
+		source(), 
+		bufferLength(),
 		_level(level)
 	{
-
-		for(auto& h : hashtable)
+		for (auto& h : hashtable)
 		{
 			h = -100000;
 		}
@@ -100,7 +101,7 @@ struct EncoderState
 			InitFixedHuffman();
 			comprecords.resize(maxRecords);
 		}
-		else  
+		else
 		{
 			_type = UserDefinedHuffman;
 			comprecords.resize(maxRecords);
@@ -125,8 +126,13 @@ struct EncoderState
 		return code(first.length + second.length, second.bits << first.length | first.bits);
 	}
 
+	static code Merge(code first, code second)
+	{
+		return code(first.length + second.length, second.bits << first.length | first.bits);
+	}
 
-	static void CreateMergedLengthCodes(code* lCodes, scode* symbolCodes)
+
+	static void CreateMergedLengthCodes(code* lCodes, code* symbolCodes)
 	{
 		for (int i = 0; i < 259; ++i)
 		{
@@ -140,7 +146,7 @@ struct EncoderState
 
 	static void InitFixedHuffman()
 	{
-		auto buffer = huffman::generate<scode>(huffman::defaultTableLengths());
+		auto buffer = huffman::generate<code>(huffman::defaultTableLengths());
 
 		std::copy(buffer.begin(), buffer.end(), codes_f);
 		 
@@ -205,7 +211,7 @@ struct EncoderState
 
 
 
-	void writelengths(const std::vector<lenghtRecord>& vector, const std::vector<scode>& table)
+	void writelengths(const std::vector<lenghtRecord>& vector, const std::vector<code>& table)
 	{
 		for (auto c : vector)
 		{
@@ -226,7 +232,7 @@ struct EncoderState
 		std::vector<int> lengths = std::vector<int>(symbolFreqs.size());
 		calcLengths(symbolFreqs, lengths, 15);
 		auto symbolMetaCodes = FromLengths(lengths, lengthfrequencies);
-		auto symbolCodes = huffman::generate<scode>(lengths);
+		auto symbolCodes = huffman::generate<code>(lengths);
 
 		calcLengths(distanceFrequencies, lengths, 15);
 		auto distMetaCodes = FromLengths(lengths, lengthfrequencies);
@@ -234,7 +240,7 @@ struct EncoderState
 
 		calcLengths(lengthfrequencies, lengths, 7);
 	
-		auto metaCodes = huffman::generate<scode>(lengths);
+		auto metaCodes = huffman::generate<code>(lengths);
 
 		// write the table
 		stream.AppendToBitStream(safecast(symbolFreqs.size() - 257), 5);
@@ -252,7 +258,6 @@ struct EncoderState
 		// update code tables 
 		 
 		std::copy(symbolCodes.begin(), symbolCodes.end(), codes);
-
 		std::copy(distcodes.begin(), distcodes.end(), dcodes);
 
 		CreateMergedLengthCodes(lcodes, codes);

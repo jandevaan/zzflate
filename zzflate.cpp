@@ -7,7 +7,7 @@
 
 lengthRecord  lengthTable[259];
 
- scode EncoderState::codes_f[288]; // literals
+ code EncoderState::codes_f[288]; // literals
  code EncoderState::lcodes_f[259]; // table to send lengths (symbol + extra bits for all 258)
  code EncoderState::dcodes_f[32];
 
