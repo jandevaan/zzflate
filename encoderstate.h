@@ -61,8 +61,7 @@ struct EncoderState
 	outputbitstream stream;
 
 	const unsigned char* source; 
-	size_t bufferLength;
-
+ 
 	CurrentBlockType _type;
 	int _level;
 
@@ -83,7 +82,6 @@ struct EncoderState
 	EncoderState(int level, unsigned char* outputBuffer) :
 		stream(outputBuffer),
 		source(), 
-		bufferLength(),
 		_level(level)
 	{
 		for (auto& h : hashtable)
@@ -320,8 +318,6 @@ struct EncoderState
 
 	int WriteBlockFixedHuff(int byteCount, int final)
 	{
-		bufferLength = byteCount;
-
 		StartBlock(FixedHuffman, final);
 		
 		for (int i = 0; i < byteCount; ++i)
@@ -334,7 +330,7 @@ struct EncoderState
 			auto delta = i - offset;
 			if (unsigned(delta) < 0x8000)
 			{
-				auto matchLength = countMatches(source + i, source + offset, safecast(bufferLength - i));
+				auto matchLength = countMatches(source + i, source + offset, safecast(byteCount - i));
 				if (matchLength >= 3)
 				{
 					stream.AppendToBitStream(lcodes_f[matchLength].bits, lcodes_f[matchLength].length);
@@ -358,7 +354,6 @@ struct EncoderState
 
 	int WriteBlock2Pass(int byteCount, bool final)
 	{
-		bufferLength = byteCount;
 		int length = (byteCount < 65536 && final) ? byteCount : std::min(256000, byteCount - 258);
 		comprecords.resize(maxRecords);
 
@@ -377,9 +372,8 @@ struct EncoderState
 			 
 			if (i - 32768 < offset)
 			{
-				auto matchLength = countMatches(source + i, source + offset, safecast(bufferLength - i));
-				 
-								
+				auto matchLength = countMatches(source + i, source + offset, safecast(byteCount - i));
+				 		
 				if (matchLength >= 3)
 				{
 					symbolFreqs[lengthTable[matchLength].code]++;
