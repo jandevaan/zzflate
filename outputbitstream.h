@@ -19,20 +19,7 @@ struct code
 	int32_t length;
 	uint32_t bits;
 };
-
-struct scode
-{
-	scode() = default;
-
-	scode(int length, int bits)
-	{
-		this->length = safecast(length);
-		this->bits = safecast(bits);
-	}
-	int16_t length;
-	uint16_t bits;
-};
-
+ 
 
 class outputbitstream
 { 
@@ -55,16 +42,7 @@ public:
 		}
 		AppendToBitStream(code.bits, code.length);
 	}
-
-	__forceinline void AppendToBitStream(scode code)
-	{
-		if (code.length == 0)
-		{
-			assert(false);
-		}
-		AppendToBitStream(code.bits, code.length);
-	}
-
+	 
 
 	__forceinline void AppendToBitStream(uint64_t bits, int32_t bitCount)
 	{

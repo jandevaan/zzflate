@@ -1,10 +1,10 @@
 ﻿
 #pragma once
-#include <functional>
-#include "huffman.h"
 
 #include <intrin.h>
-
+#include <functional>
+#include "huffman.h"
+ 
 namespace
 {
 	const char order[] = { 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15 };
@@ -119,10 +119,6 @@ struct EncoderState
 		return -1;
 	}
 
-	static code Merge(scode first, code second)
-	{
-		return code(first.length + second.length, second.bits << first.length | first.bits);
-	}
 
 	static code Merge(code first, code second)
 	{
@@ -157,24 +153,15 @@ struct EncoderState
  
 	}
 
-	void WriteDistance(int offset)
+	void WriteDistance(const code* codes, int offset)
 	{
-		auto bucketId = distanceLut[offset];
-		stream.AppendToBitStream(dcodes[bucketId]);
+		auto bucketId = distanceLut[offset];		 
+		stream.AppendToBitStream(codes[bucketId]);
 
 		auto bucket = distanceTable[bucketId];
 		stream.AppendToBitStream(offset - bucket.distanceStart, bucket.bits);
 	}
-  
-	void WriteDistanceFixed(int offset)
-	{
-		auto bucketId = distanceLut[offset];
-		stream.AppendToBitStream(dcodes_f[bucketId]);
-
-		auto bucket = distanceTable[bucketId];
-		stream.AppendToBitStream(offset - bucket.distanceStart, bucket.bits);
-	}
-
+   
 	void StartBlock(CurrentBlockType type, int final)
 	{
 		stream.AppendToBitStream(final, 1); // final
@@ -199,7 +186,7 @@ struct EncoderState
 			if (r.length != 0)
 			{
 				stream.AppendToBitStream(lcodes[r.length]);
-				WriteDistance(r.backoffset);
+				WriteDistance(dcodes, r.backoffset);
 			}
 
 			offset += r.literals + r.length;
@@ -334,7 +321,7 @@ struct EncoderState
 				if (matchLength >= 3)
 				{
 					stream.AppendToBitStream(lcodes_f[matchLength].bits, lcodes_f[matchLength].length);
-					WriteDistanceFixed(delta);
+					WriteDistance(dcodes_f, delta);
 
 					i += matchLength - 1;					 
 					continue;
