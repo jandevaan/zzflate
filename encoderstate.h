@@ -13,7 +13,6 @@ namespace
 	const unsigned hashSize = 1 << hashBits;
 	const unsigned hashMask = hashSize -1;
 	const int maxRecords = 20000;
-
 } 
 
 #include "userhuffman.h"
@@ -127,13 +126,13 @@ struct EncoderState
 	}
 
 
-	static void CreateMergedLengthCodes(code* lengthCodes, scode* symbolCodes)
+	static void CreateMergedLengthCodes(code* lCodes, scode* symbolCodes)
 	{
 		for (int i = 0; i < 259; ++i)
 		{
 			auto lengthRecord = lengthTable[i];
 
-			lengthCodes[i] = Merge(symbolCodes[lengthRecord.code], 
+			lCodes[i] = Merge(symbolCodes[lengthRecord.code], 
 			                  code(lengthRecord.extraBitLength, lengthRecord.extraBits)); 
 		}
 	}
@@ -141,7 +140,7 @@ struct EncoderState
 
 	static void InitFixedHuffman()
 	{
-		auto buffer = huffman::generate(huffman::defaultTableLengths());
+		auto buffer = huffman::generate2<code>(huffman::defaultTableLengths());
 
 	 	for (int i = 0; i < 288; ++i)
 		{
@@ -231,15 +230,15 @@ struct EncoderState
 		std::vector<int> lengths = std::vector<int>(symbolFreqs.size());
 		calcLengths(symbolFreqs, lengths, 15);
 		auto symbolMetaCodes = FromLengths(lengths, lengthfrequencies);
-		auto symbolCodes = huffman::generate(lengths);
+		auto symbolCodes = huffman::generate2<code>(lengths);
 
 		calcLengths(distanceFrequencies, lengths, 15);
 		auto distMetaCodes = FromLengths(lengths, lengthfrequencies);
-		auto distcodes = huffman::generate(lengths);
+		auto distcodes = huffman::generate2<code>(lengths);
 
 		calcLengths(lengthfrequencies, lengths, 7);
 	
-		auto metaCodes = huffman::generate(lengths);
+		auto metaCodes = huffman::generate2<code>(lengths);
 
 		// write the table
 		stream.AppendToBitStream(safecast(symbolFreqs.size() - 257), 5);
@@ -440,7 +439,7 @@ struct EncoderState
 
 
 
-	int writeUncompressedBlock(int byteCount, int final)	
+	int WriteUncompressedBlock(int byteCount, int final)	
 	{
 		uint16_t length = safecast(std::min(byteCount, 0xFFFF));
 		StartBlock(Uncompressed, final && length == byteCount);
@@ -460,7 +459,7 @@ struct EncoderState
 	{
 		if (_level == 0)
 		{
-			return writeUncompressedBlock(length, final);
+			return WriteUncompressedBlock(length, final);
 		}
 		else if (_level == 1)
 		{

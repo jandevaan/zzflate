@@ -18,7 +18,6 @@ namespace
 
  
  
-const int MAX_BITS = 16;
 
 
 unsigned huffman::reverse(unsigned value, int len)
@@ -32,43 +31,6 @@ unsigned huffman::reverse(unsigned value, int len)
 	
 
 	return ::reverse(value) >> (32 - len);
-}
-
-
-std::vector<code> huffman::generate(const std::vector<int>& lengths)
-{ 
-	int bl_count[MAX_BITS] = {};
-	for (int i = 0; i < lengths.size(); ++i)
-	{
-		bl_count[lengths[i]]++;
-	}
-	
-	unsigned int next_code[MAX_BITS] = { };
-	
-	int bits = 0;
-	bl_count[0] = 0;
-	for (int n = 1; n < MAX_BITS; ++n)
-	{
-		bits = (bits + bl_count[n - 1]) << 1;
-		next_code[n] = bits;
-	}
-
-	std::vector<code> codes(lengths.size());
-	for (int n = 0; n < lengths.size(); n++)
-	{
-		int len = lengths[n];
-		if (len <= 0)
-			continue;
-
-		unsigned reversed = reverse(next_code[len], len);
-		if (reverse(reversed, len) != next_code[len])		 
-			break;
-		 
-		codes[n] = { safecast(len), safecast(reversed) };
-		next_code[len]++;
-	}
-
-	return codes;
 }
  
 std::vector<int> huffman::defaultTableLengths()
