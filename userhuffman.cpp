@@ -3,7 +3,7 @@
 #include "userhuffman.h"
 #include <algorithm>
 #include "outputbitstream.h"
-
+ 
 class greater
 {
 public:
@@ -12,6 +12,8 @@ public:
 		return a.frequency > b.frequency;
 	}
 };
+
+
 
 
 static int CalculateTree(const std::vector<int>& symbolFreqs, int minFreq, std::vector<treeItem>& tree)

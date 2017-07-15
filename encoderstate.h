@@ -70,12 +70,17 @@ struct EncoderState
 	
 	std::vector<compressionRecord> comprecords;
 
+	static scode codes_f[288]; // literals
+	static code lcodes_f[259]; // table to send lengths (symbol + extra bits for all 258)
+	static code dcodes_f[32];
+
 	
 	scode codes[288]; // literals
 	code lcodes[259]; // table to send lengths (symbol + extra bits for all 258)
 	code dcodes[32];
 	int hashtable[hashSize];
 
+ 
 	EncoderState(int level, unsigned char* outputBuffer)
 		: stream(outputBuffer),
 		_level(level)

@@ -16,49 +16,7 @@ namespace
 	}
 }
 
-
-struct intRange
-{
-	int lowerBound; 
-	int upperbound;
-
-	bool isEmpty() const
-	{
-		return lowerBound < upperbound;
-	}
-
-	bool inRange(int i) const
-	{
-		return lowerBound <= i && i < upperbound;
-	}
-
-	void  add(int i)
-	{
-		if (inRange(i))
-			return;
-
-		if (isEmpty())
-		{
-			lowerBound = i;
-			upperbound = i + 1;
-			return;
-		}
-
-		if (i < lowerBound)
-		{
-			lowerBound = i;			
-		}
-		else
-		{
-			upperbound = i + 1;
-		}
-	}
-
-	unsigned int count() const
-	{
-		return upperbound - lowerBound;
-	}
-};
+ 
  
 const int MAX_BITS = 16;
 
@@ -112,8 +70,7 @@ std::vector<code> huffman::generate(const std::vector<int>& lengths)
 
 	return codes;
 }
-
-
+ 
 std::vector<int> huffman::defaultTableLengths()
 {
 	std::vector<int> lengths(288);

@@ -7,6 +7,10 @@
 
 lengthRecord  lengthTable[259];
 
+ scode EncoderState::codes_f[288]; // literals
+ code EncoderState::lcodes_f[259]; // table to send lengths (symbol + extra bits for all 258)
+ code EncoderState::dcodes_f[32];
+
 
 const int lengthCodeTable[] = {
 	257,  0,
@@ -135,6 +139,8 @@ void buildLengthLookup()
 	{
 		distanceLut[i] = safecast(EncoderState::FindDistance(i));
 	} 
+
+	//EncoderState::InitFixedHuffman();
 }
 
 
