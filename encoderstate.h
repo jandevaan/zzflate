@@ -9,7 +9,7 @@ namespace
 {
 	const char order[] = { 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15 };
 
-	const int hashBits = 13;
+	const int hashBits = 12;
 	const unsigned hashSize = 1 << hashBits;
 	const unsigned hashMask = hashSize -1;
 	const int maxRecords = 20000;
@@ -283,9 +283,13 @@ struct EncoderState
 
 			auto delta = *(compareType*)a ^ *(compareType*)b;
 
-			unsigned long index;
-			if (_BitScanForward64(&index, delta)!= 0)
+			if (delta != 0)
+			{
+				unsigned long index;
+				_BitScanForward64(&index, delta);
 				return index >> 3;
+			}
+				
 		}
 		
 		return remain(a, b, matchLength, int(maxLength));

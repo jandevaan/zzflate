@@ -250,11 +250,8 @@ TEST(ZzFlate, CanterburyZlib)
 	{
 		testroundtripperfzlib(readFile(x), 1, x, 1);
 	}
-
 }
-  
- 
-
+   
 
 TEST(ZzxFlatePerf, UncompressedPerf)
 {
