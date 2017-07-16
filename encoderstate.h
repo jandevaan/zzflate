@@ -9,7 +9,7 @@ namespace
 {
 	const char order[] = { 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15 };
 
-	const int hashBits = 16;
+	const int hashBits = 13;
 	const unsigned hashSize = 1 << hashBits;
 	const unsigned hashMask = hashSize -1;
 	const int maxRecords = 20000;
@@ -67,6 +67,7 @@ struct EncoderState
 
 	
 	std::vector<compressionRecord> comprecords;
+	std::vector<int> lengths = std::vector<int>(288);
 
 	static code codes_f[288]; // literals
 	static code lcodes_f[259]; // table to send lengths (symbol + extra bits for all 258)
@@ -140,10 +141,8 @@ struct EncoderState
 
 	static void InitFixedHuffman()
 	{
-		auto buffer = huffman::generate<code>(huffman::defaultTableLengths());
-
-		std::copy(buffer.begin(), buffer.end(), codes_f);
-		 
+		huffman::generate<code>(huffman::defaultTableLengths(), codes_f);
+ 
 		for (int i = 0; i < 32; ++i)
 		{
 			dcodes_f[i] = code( 5, huffman::reverse(i, 5) );
@@ -156,9 +155,8 @@ struct EncoderState
 	void WriteDistance(const code* codes, int offset)
 	{
 		auto bucketId = distanceLut[offset];		 
-		stream.AppendToBitStream(codes[bucketId]);
-
 		auto bucket = distanceTable[bucketId];
+		stream.AppendToBitStream(codes[bucketId]);
 		stream.AppendToBitStream(offset - bucket.distanceStart, bucket.bits);
 	}
    
@@ -196,36 +194,38 @@ struct EncoderState
 
 
 
-	void writelengths(const std::vector<lenghtRecord>& vector, const std::vector<code>& table)
+	void writelengths(const std::vector<lenghtRecord>& records, const std::vector<code>& table)
 	{
-		for (auto c : vector)
+		for (auto r : records)
 		{
-			stream.AppendToBitStream(table[c.value]);
-			switch (c.value)
+			stream.AppendToBitStream(table[r.value]);
+			switch (r.value)
 			{
-			case 16: stream.AppendToBitStream(c.payLoad - 3, 2); break;
-			case 17: stream.AppendToBitStream(c.payLoad - 3, 3); break;
-			case 18: stream.AppendToBitStream(c.payLoad - 11, 7); break;
+			case 16: stream.AppendToBitStream(r.payLoad - 3, 2); break;
+			case 17: stream.AppendToBitStream(r.payLoad - 3, 3); break;
+			case 18: stream.AppendToBitStream(r.payLoad - 11, 7); break;
 			default: break;
 			}
 		}
 	}
 
+	std::vector<lenghtRecord> ComputeCodes(const std::vector<int>& frequencies, std::vector<int>& codeLengthFreqs, code* outputCodes)
+	{
+		CalcLengths(frequencies, lengths, 15);
+		huffman::generate<code>(lengths, outputCodes);
+		return FromLengths(lengths, codeLengthFreqs);
+	}
+
     void DetermineAndWriteCodes(const std::vector<int>& symbolFreqs, const std::vector<int>& distanceFrequencies)
 	{ 
 		std::vector<int> lengthfrequencies(19, 0);
-		std::vector<int> lengths = std::vector<int>(symbolFreqs.size());
-		calcLengths(symbolFreqs, lengths, 15);
-		auto symbolMetaCodes = FromLengths(lengths, lengthfrequencies);
-		auto symbolCodes = huffman::generate<code>(lengths);
+		
+		auto symbolMetaCodes = ComputeCodes(symbolFreqs, lengthfrequencies, codes);
+		auto distMetaCodes = ComputeCodes(distanceFrequencies, lengthfrequencies, dcodes);
 
-		calcLengths(distanceFrequencies, lengths, 15);
-		auto distMetaCodes = FromLengths(lengths, lengthfrequencies);
-		auto distcodes = huffman::generate<code>(lengths);
-
-		calcLengths(lengthfrequencies, lengths, 7);
-	
-		auto metaCodes = huffman::generate<code>(lengths);
+		auto metaCodes = std::vector<code>(19);
+		CalcLengths(lengthfrequencies, lengths, 7);
+		huffman::generate<code>(lengths, &metaCodes[0]);
 
 		// write the table
 		stream.AppendToBitStream(safecast(symbolFreqs.size() - 257), 5);
@@ -241,9 +241,7 @@ struct EncoderState
 		writelengths(distMetaCodes, metaCodes);
  
 		// update code tables 
-		 
-		std::copy(symbolCodes.begin(), symbolCodes.end(), codes);
-		std::copy(distcodes.begin(), distcodes.end(), dcodes);
+
 
 		CreateMergedLengthCodes(lcodes, codes);
 	}
@@ -253,7 +251,7 @@ struct EncoderState
 		const uint32_t* ptr32 = reinterpret_cast<const uint32_t*>(ptr);
 		auto val = (*ptr32 >> 8) * 0x00d68664u;
   
-		return val >> (32 - hashBits);;
+		return val >> (32 - hashBits);
 	}
 	 
 	static int remain(const unsigned char* a, const unsigned char* b, int matchLength, int maxLength)
@@ -341,7 +339,7 @@ struct EncoderState
 
 	int WriteBlock2Pass(int byteCount, bool final)
 	{
-		int length = (byteCount < 65536 && final) ? byteCount : std::min(256000, byteCount - 258);
+		int length = (byteCount < 256000 && final) ? byteCount : std::min(256000, byteCount - 258);
 		comprecords.resize(maxRecords);
 
 		auto symbolFreqs = std::vector<int>(286,0);
@@ -362,7 +360,7 @@ struct EncoderState
 				auto matchLength = countMatches(source + i, source + offset, safecast(byteCount - i));
 				 		
 				if (matchLength >= 3)
-				{
+				{				 
 					symbolFreqs[lengthTable[matchLength].code]++;
 					comprecords[recordCount++] = {  (i - backRefEnd), safecast(i - offset), safecast(matchLength) };
 					int nextI = i + matchLength - 1;

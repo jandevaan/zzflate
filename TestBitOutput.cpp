@@ -41,7 +41,8 @@ TEST(BitOutput, TrivHuffman)
 {
 	std::vector <int> buffer = {2, 1, 3, 3};
 	
-	auto codes = huffman::generate<code>(buffer);
+	std::vector<code> codes(buffer.size());
+	huffman::generate<code>(buffer, &codes[0]);
 
 	EXPECT_EQ(codes[1].bits,0);
 }

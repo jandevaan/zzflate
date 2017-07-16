@@ -10,7 +10,7 @@ namespace  huffman
 	std::vector<int> defaultTableLengths();
 
 	template <class T>
-	std::vector<T> generate(const std::vector<int>& lengths)
+	void generate(const std::vector<int>& lengths, T* codes)
 	{
 		int bl_count[MAX_BITS] = {};
 		for (int i = 0; i < lengths.size(); ++i)
@@ -27,8 +27,7 @@ namespace  huffman
 			bits = (bits + bl_count[n - 1]) << 1;
 			next_code[n] = bits;
 		}
-
-		std::vector<T> codes(lengths.size());
+		 
 		for (int n = 0; n < lengths.size(); n++)
 		{
 			int len = lengths[n];
@@ -41,9 +40,7 @@ namespace  huffman
 
 			codes[n] = { safecast(len), safecast(reversed) };
 			next_code[len]++;
-		}
-
-		return codes;
+		}		 
 	}
 };
 

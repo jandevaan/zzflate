@@ -71,7 +71,7 @@ static int CalculateTree(const std::vector<int>& symbolFreqs, int minFreq, std::
 	return maxLength;
 }
 
-int calcLengths(const std::vector<int>& symbolFreqs, std::vector<int>& lengths, int maxLength)
+int CalcLengths(const std::vector<int>& symbolFreqs, std::vector<int>& lengths, int maxLength)
 {
 	int minFreq = 0;
 	std::vector<treeItem> tree;

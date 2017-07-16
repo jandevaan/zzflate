@@ -3,6 +3,7 @@
 
 
 #include "encoderstate.h"
+#include <memory>
 
 
 lengthRecord  lengthTable[259];
@@ -152,18 +153,18 @@ void ZzFlateEncode(unsigned char *dest, unsigned long *destLen, const unsigned c
 		return;
 	}
 
-	EncoderState state(level, dest);
-
+	auto state = std::make_unique<EncoderState>(level, dest);
+	 
 	auto header = getHeader();
-	state.stream.WriteU8(header.CMF);
-	state.stream.WriteU8(header.FLG);
+	state->stream.WriteU8(header.CMF);
+	state->stream.WriteU8(header.FLG);
 
 	uint32_t adler = 1; 
 
-	state.AddData(source, source + sourceLen, adler);
+	state->AddData(source, source + sourceLen, adler);
 	 
-	state.stream.WriteBigEndianU32(adler);
-	state.stream.Flush();
+	state->stream.WriteBigEndianU32(adler);
+	state->stream.Flush();
 
-	*destLen = safecast(state.stream.byteswritten());
+	*destLen = safecast(state->stream.byteswritten());
 }
