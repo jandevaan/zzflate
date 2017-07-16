@@ -1,10 +1,9 @@
 ﻿
 #pragma once
 
-#include <intrin.h>
 #include <functional>
 #include "huffman.h"
- 
+#include "visualc.h" 
 namespace
 {
 	const char order[] = { 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15 };
@@ -152,11 +151,11 @@ struct EncoderState
  
 	}
 
-	void WriteDistance(const code* codes, int offset)
+	void WriteDistance(const code* distCodes, int offset)
 	{
 		auto bucketId = distanceLut[offset];		 
 		auto bucket = distanceTable[bucketId];
-		stream.AppendToBitStream(codes[bucketId]);
+		stream.AppendToBitStream(distCodes[bucketId]);
 		stream.AppendToBitStream(offset - bucket.distanceStart, bucket.bits);
 	}
    
@@ -270,7 +269,8 @@ struct EncoderState
 		return maxLength;
 	}
 
-    __forceinline int countMatches(const unsigned char* a, const unsigned char* b, int maxLength)
+
+	static __forceinline int countMatches(const unsigned char* a, const unsigned char* b, int maxLength)
 	{
 
 		int matchLength = 0;
@@ -284,12 +284,7 @@ struct EncoderState
 			auto delta = *(compareType*)a ^ *(compareType*)b;
 
 			if (delta != 0)
-			{
-				unsigned long index;
-				_BitScanForward64(&index, delta);
-				return index >> 3;
-			}
-				
+				return ZeroCount(delta);
 		}
 		
 		return remain(a, b, matchLength, int(maxLength));

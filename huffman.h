@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include "outputbitstream.h"
+#include "visualc.h"
 
 namespace  huffman
 {
