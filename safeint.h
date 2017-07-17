@@ -1,5 +1,5 @@
-﻿#ifndef _safeint
-#define _safeint
+﻿#ifndef _ZZSAFEINT
+#define _ZZSAFEINT
 
 
 template <class TValue>

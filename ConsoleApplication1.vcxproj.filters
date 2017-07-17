@@ -27,13 +27,13 @@
     <ClInclude Include="zzflate.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="userhuffman.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="safeint.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="visualc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="config.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -54,9 +54,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="TestBitOutput.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="userhuffman.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

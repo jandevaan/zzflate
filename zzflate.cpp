@@ -153,7 +153,7 @@ void ZzFlateEncode(unsigned char *dest, unsigned long *destLen, const unsigned c
 		return;
 	}
 
-	auto state = std::make_unique<EncoderState>(level, dest);
+	auto state = std::make_unique<EncoderState>(level, dest, *destLen);
 	 
 	auto header = getHeader();
 	state->stream.WriteU8(header.CMF);

@@ -1,5 +1,5 @@
-#ifndef outputbitstream_
-#define outputbitstream_
+#ifndef _ZZOUTPUTBITSTREAM
+#define _ZZOUTPUTBITSTREAM
 
 #include <cstdint>
 #include <cassert>
@@ -28,10 +28,12 @@ class outputbitstream
 
 public:
 
-	outputbitstream(unsigned char* stream)		  
+	
+	outputbitstream(unsigned char* stream, int64_t byteCount)
 	{		
 		_start = stream;
 		_stream = stream;
+		_streamEnd = _stream + byteCount;
 	}
 
 	__forceinline void AppendToBitStream(code code)
@@ -102,13 +104,15 @@ public:
 		AppendToBitStream(value & 0xFF, 8);
 	}
 
-
-	long long byteswritten() const
+	int64_t byteswritten() const
 	{
 		assert(_usedBitCount == 0);
 		return _stream - _start;
 	}
 
+	int64_t AvailableBytes() const 	{ return _streamEnd - _stream; }
+
+	unsigned char* _streamEnd = nullptr;
 	unsigned char* _stream = nullptr;
 private:
 

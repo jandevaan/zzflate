@@ -1,9 +1,10 @@
-﻿
-#pragma once
-
+﻿#ifndef _ZZENCODERSTATE
+#define _ZZENCODERSTATE
+ 
+#include "config.h" 
 #include <functional>
 #include "huffman.h"
-#include "visualc.h" 
+
 namespace
 {
 	const char order[] = { 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15 };
@@ -13,10 +14,7 @@ namespace
 	const unsigned hashMask = hashSize -1;
 	const int maxRecords = 20000;
 } 
-
-#include "userhuffman.h"
-
-
+ 
 struct lengthRecord
 {
 	short code;
@@ -79,8 +77,8 @@ struct EncoderState
 	int hashtable[hashSize];
 
  
-	EncoderState(int level, unsigned char* outputBuffer) :
-		stream(outputBuffer),
+	EncoderState(int level, unsigned char* outputBuffer, int64_t bytes) :
+		stream(outputBuffer, bytes),
 		source(), 
 		_level(level)
 	{
@@ -275,8 +273,6 @@ struct EncoderState
 
 		int matchLength = 0;
 		 
-		typedef uint64_t compareType;
-
 		if (maxLength >= (sizeof(compareType)))
 		{
 			matchLength = sizeof(compareType);
@@ -304,7 +300,9 @@ struct EncoderState
 	{
 		StartBlock(FixedHuffman, final);
 		
-		for (int i = 0; i < byteCount; ++i)
+		int64_t availableCount = this->stream.AvailableBytes() * 8;
+		int64_t bytesToEncode = std::min((availableCount + 8) / 9, (int64_t)byteCount);
+		for (int i = 0; i < bytesToEncode; ++i)
 		{
 			auto sourcePtr = source + i;
 			auto newHash = CalcHash(sourcePtr);
@@ -329,15 +327,14 @@ struct EncoderState
 			stream.AppendToBitStream(code.bits, code.length);
 		}
 
-		FixHashTable(byteCount);
-
+		FixHashTable(bytesToEncode);
 		stream.AppendToBitStream(codes_f[256]);
-
-		return byteCount;
+		return bytesToEncode;
 	}
 
 	int WriteBlock2Pass(int byteCount, bool final)
 	{
+
 		int length = (byteCount < 256000 && final) ? byteCount : std::min(256000, byteCount - 258);
 		comprecords.resize(maxRecords);
 
@@ -461,3 +458,5 @@ struct EncoderState
 	}
 	
 };
+
+#endif

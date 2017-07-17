@@ -10,7 +10,7 @@
 
 TEST(ZzFlate, TestDistanceSearch)
 {
-	EncoderState state(0, nullptr);
+	EncoderState state(0, nullptr, 0);
 
 	int failCount = 0;
 

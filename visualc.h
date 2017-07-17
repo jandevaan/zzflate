@@ -1,9 +1,11 @@
-﻿#ifndef _VISUALC
-#define _VISUALC
+﻿#ifndef _ZZVISUALC
+#define _ZZVISUALC
 
 #include <intrin.h>
  
-__forceinline int ZeroCount(unsigned long long delta)
+typedef uint64_t compareType;
+
+__forceinline int ZeroCount(uint64_t delta)
 {
 	unsigned long index;
 	_BitScanForward64(&index, delta);

@@ -170,11 +170,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="config.h" />
     <ClInclude Include="encoderstate.h" />
     <ClInclude Include="huffman.h" />
     <ClInclude Include="outputbitstream.h" />
     <ClInclude Include="safeint.h" />
-    <ClInclude Include="userhuffman.h" />
     <ClInclude Include="visualc.h" />
     <ClInclude Include="zzflate.h" />
   </ItemGroup>
@@ -184,7 +184,6 @@
     <ClCompile Include="huffman.cpp" />
     <ClCompile Include="TestBitOutput.cpp" />
     <ClCompile Include="TestHuffman.cpp" />
-    <ClCompile Include="userhuffman.cpp" />
     <ClCompile Include="zzflate.cpp" />
   </ItemGroup>
   <ItemGroup>
