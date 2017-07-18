@@ -70,7 +70,6 @@ struct EncoderState
 	static code lcodes_f[259]; // table to send lengths (symbol + extra bits for all 258)
 	static code dcodes_f[32];
 
-	
 	code codes[288]; // literals
 	code lcodes[259]; // table to send lengths (symbol + extra bits for all 258)
 	code dcodes[32];
@@ -93,9 +92,7 @@ struct EncoderState
 		}
 		else if (level == 1)
 		{
-			_type = FixedHuffman;
-			InitFixedHuffman();
-			comprecords.resize(maxRecords);
+			_type = FixedHuffman; 
 		}
 		else
 		{
@@ -191,7 +188,7 @@ struct EncoderState
 
 
 
-	void writelengths(const std::vector<lenghtRecord>& records, const std::vector<code>& table)
+	void WriteLengths(const std::vector<lenghtRecord>& records, const std::vector<code>& table)
 	{
 		for (auto r : records)
 		{
@@ -234,8 +231,8 @@ struct EncoderState
 			stream.AppendToBitStream(lengths[order[i]], 3);
 		}
 
-		writelengths(symbolMetaCodes, metaCodes);
-		writelengths(distMetaCodes, metaCodes);
+		WriteLengths(symbolMetaCodes, metaCodes);
+		WriteLengths(distMetaCodes, metaCodes);
  
 		// update code tables 
 
@@ -243,14 +240,27 @@ struct EncoderState
 		CreateMergedLengthCodes(lcodes, codes);
 	}
 
-	 static unsigned int CalcHash(const unsigned char * ptr )
+//*	
+	// This hashfunction is broken: it skips the first byte.
+	// Any attempt to fix it ruins compression ratios, strangely enough. 
+	static unsigned int CalcHash(const unsigned char * ptr )
 	{
 		const uint32_t* ptr32 = reinterpret_cast<const uint32_t*>(ptr);
 		auto val = (*ptr32 >> 8) * 0x00d68664u;
   
 		return val >> (32 - hashBits);
 	}
-	 
+
+/*/
+
+	 static unsigned int CalcHash(const unsigned char * ptr)
+	 {
+		 const uint32_t* ptr32 = reinterpret_cast<const uint32_t*>(ptr);
+		 auto n = (*ptr32); 
+		 return n % 4093; 
+	 }
+
+//*/	
 	static int remain(const unsigned char* a, const unsigned char* b, int matchLength, int maxLength)
 	{
 		if (maxLength > 258)
@@ -301,7 +311,7 @@ struct EncoderState
 		StartBlock(FixedHuffman, final);
 		
 		int64_t availableCount = this->stream.AvailableBytes() * 8;
-		int64_t bytesToEncode = std::min((availableCount + 8) / 9, (int64_t)byteCount);
+		auto bytesToEncode = std::min(int((availableCount + 8) / 9), byteCount);
 		for (int i = 0; i < bytesToEncode; ++i)
 		{
 			auto sourcePtr = source + i;
