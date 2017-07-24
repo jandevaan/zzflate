@@ -1,10 +1,11 @@
 #include <cassert> 
 #include <gtest/gtest.h> 
+#include <memory>
 
 
 #include "encoderstate.h"
-#include <memory>
 
+#include "zzflate.h"
 
 lengthRecord  lengthTable[259];
 
@@ -160,11 +161,43 @@ void ZzFlateEncode(unsigned char *dest, unsigned long *destLen, const unsigned c
 	state->stream.WriteU8(header.FLG);
 
 	uint32_t adler = 1; 
-
+	
 	state->AddData(source, source + sourceLen, adler);
-	 
+
 	state->stream.WriteBigEndianU32(adler);
 	state->stream.Flush();
 
 	*destLen = safecast(state->stream.byteswritten());
+}
+
+
+
+
+void ZzFlateEncode2(const unsigned char *source, size_t sourceLen, int level, std::function<bool(const bufferHelper&)> callback)
+{
+	if (level < 0 || level >3)
+	{
+		//*destLen = ~0ul;
+		return;
+	}
+
+	auto state = std::make_unique<EncoderState>(level);
+
+	auto header = getHeader();
+	state->stream.WriteU8(header.CMF);
+	state->stream.WriteU8(header.FLG);
+
+	uint32_t adler = 1;
+
+	state->AddData(source, source + sourceLen, adler);
+
+	state->stream.WriteBigEndianU32(adler);
+	state->stream.Flush();
+
+	for (auto& buf : state->stream.buffers)
+	{
+		callback(*buf);
+	}
+
+//	*destLen = safecast(state->stream.byteswritten());
 }

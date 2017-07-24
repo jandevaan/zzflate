@@ -14,6 +14,13 @@
  
 #include "safeint.h"
 
+#ifdef NDEBUG
+bool debugging = false;
+#else
+bool debugging = true;
+#endif
+
+
 namespace fs = std::experimental::filesystem;
 
 std::vector<std::string> directory(std::string folder)
@@ -102,19 +109,23 @@ std::vector<unsigned char> bufferCompressed = std::vector<unsigned char>(1500000
 
 int testroundtripperf(std::vector<unsigned char>& bufferUncompressed, int compression)
 { 
-	bufferCompressed.reserve(int(bufferUncompressed.size() * 1.01)); 
+	bufferCompressed.resize(int(bufferUncompressed.size() * 1.01)); 
 	
 	uLongf comp_len = 0;
 
 	std::chrono::steady_clock::time_point times[11];
 
 	times[0] = std::chrono::high_resolution_clock::now();
-	
+ 
+
 	for (int i = 0; i < 10; ++i)
 	{
 		 
 		comp_len = safecast(bufferCompressed.size());
 		ZzFlateEncode(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
+		if (debugging)
+			return 0;
+
 		times[i + 1] = std::chrono::high_resolution_clock::now();
 	}
 
@@ -139,6 +150,7 @@ int testroundtripperfzlib(const std::vector<unsigned char>& bufferUncompressed, 
 	{
 		comp_len = safecast(bufferCompressed.size());
 		compress2(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], source_len, compression);
+		
 	}
 	std::cout << std::fixed;
 	std::cout << std::setprecision(2);
@@ -151,10 +163,28 @@ int testroundtripperfzlib(const std::vector<unsigned char>& bufferUncompressed, 
 int testroundtrip(const std::vector<unsigned char>& bufferUncompressed, int compression, std::string name = "")
 { 
 	auto testSize = bufferUncompressed.size();
-	auto  compressed = std::vector<unsigned char>(testSize * 3 / 2 + 5000);
-	uLongf comp_len = safecast(compressed.size());
-	ZzFlateEncode(&compressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
+	auto  compressed = std::vector<unsigned char>();
 
+	if (compression != 0)
+	{
+		unsigned long compressedLength = testSize + (testSize >> 7);
+		compressed.resize(compressedLength);
+		ZzFlateEncode(&compressed[0], &compressedLength, &bufferUncompressed[0], bufferUncompressed.size(), compression);
+		compressed.resize(compressedLength);
+	}
+	else
+	{ 
+		std::function<bool(const bufferHelper )> callback = [&compressed](auto h)->bool
+		{
+			for (int i = 0; i < h.bytesStored; ++i)
+			{
+				compressed.push_back(h.buffer[i]);
+			}
+ 			return false;
+		};
+ 		ZzFlateEncode2(&bufferUncompressed[0], bufferUncompressed.size(), compression, callback);
+	}
+	auto comp_len = compressed.size();
 	std::cout << std::fixed;
 	std::cout << std::setprecision(2);
 
@@ -180,24 +210,6 @@ int testroundtrip(const std::vector<unsigned char>& bufferUncompressed, int comp
 
 
 
-
-const uint64_t magic = 0x022fdd63cc95386d; // the 4061955.
-
-const unsigned int magictable[64] =
-{
-	0,  1,  2, 53,  3,  7, 54, 27,
-	4, 38, 41,  8, 34, 55, 48, 28,
-	62,  5, 39, 46, 44, 42, 22,  9,
-	24, 35, 59, 56, 49, 18, 29, 11,
-	63, 52,  6, 26, 37, 40, 33, 47,
-	61, 45, 43, 21, 23, 58, 17, 10,
-	51, 25, 36, 32, 60, 20, 57, 16,
-	50, 31, 19, 15, 30, 14, 13, 12,
-};
-
-unsigned int bitScanForward(uint64_t b) {
-	return magictable[(uint64_t(b&-int64_t(b))*magic) >> 58];
-}
 
 int main(int ac, char* av[])
 {

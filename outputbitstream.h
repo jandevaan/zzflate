@@ -3,9 +3,12 @@
 
 #include <cstdint>
 #include <cassert>
+#include <functional>
+#include <algorithm>
+#include <memory>
 
-#include "safeint.h"
-
+#include "safeint.h" 
+#include "huffman.h"
 uint32_t adler32x(uint32_t startValue, const unsigned char *data, size_t len);
 
 struct code
@@ -21,19 +24,49 @@ struct code
 };
  
 
-class outputbitstream
+
+struct bufferHelper
+{
+	bufferHelper(const bufferHelper& a) = default;
+
+	bufferHelper(int capacity) :
+		buffer(new unsigned char[capacity]),
+		capacity(capacity),
+		bytesStored(0)
+	{
+	}
+
+	unsigned char* buffer;
+	int bytesStored;
+	int capacity;
+};
+
+
+
+
+struct outputbitstream
 { 
-	outputbitstream(const outputbitstream& strm) = delete;
 
+private:
+	unsigned char* start = nullptr;
 
+	uint64_t _bitBuffer = 0;
+	int _usedBitCount = 0;
+ 	 
+	unsigned char* streamEnd = nullptr;
+	unsigned char* stream = nullptr;
+	bool fixedOutputBuffer;
 public:
-
-	
-	outputbitstream(unsigned char* stream, int64_t byteCount)
-	{		
-		_start = stream;
-		_stream = stream;
-		_streamEnd = _stream + byteCount;
+	std::vector<std::unique_ptr<bufferHelper>> buffers;
+ 
+	outputbitstream(const outputbitstream& strm) = delete;
+ 	
+	outputbitstream(unsigned char* stream, int64_t byteCount) :
+		fixedOutputBuffer(stream != nullptr),
+		start(stream),
+		stream(stream),
+		streamEnd(stream + byteCount)
+	{				 	
 	}
 
 	__forceinline void AppendToBitStream(code code)
@@ -53,7 +86,6 @@ public:
 		//	assert(false);
 		//}
 		_bitBuffer |= bits << _usedBitCount;
-
 		_usedBitCount += bitCount;
 
 		if (_usedBitCount < 32)
@@ -64,25 +96,35 @@ public:
 		_bitBuffer = _bitBuffer >> 32;
 	}
 
+	void PadToByte()
+	{
+		AppendToBitStream(0, -_usedBitCount & 0x7);
+	}
+
 	void Flush()
 	{
-		if (_usedBitCount == 0)
-			return;
-
-		AppendToBitStream(0, -_usedBitCount & 0x7);
-
-		while (_usedBitCount >= 8)
+		if (_usedBitCount != 0)
 		{
-			_usedBitCount -= 8;
-			writebyte(_bitBuffer & 0xFF);
-			_bitBuffer = _bitBuffer >> 8;
+			PadToByte();
+
+			while (_usedBitCount >= 8)
+			{
+				_usedBitCount -= 8;
+				writebyte(_bitBuffer & 0xFF);
+				_bitBuffer = _bitBuffer >> 8;
+			}
 		}
-		
+
+		if (!fixedOutputBuffer)
+		{
+			auto bytes = safecast(byteswritten());
+			(buffers[buffers.size() - 1])->bytesStored = bytes;
+		}
 	}
 
 	bool WriteU16(uint16_t value)
 	{
-		AppendToBitStream(0, -_usedBitCount & 0x7);
+		PadToByte(); 
 		AppendToBitStream(value, 16);
 		return true;
 	}
@@ -90,50 +132,82 @@ public:
 
 	void WriteU8(uint8_t value)
 	{
-		AppendToBitStream(0, -_usedBitCount & 0x7);
-		AppendToBitStream(value, 8);		
+		PadToByte(); 
+		AppendToBitStream(value, 8);
 	}
 
 	void WriteBigEndianU32(uint32_t value)
 	{
-		AppendToBitStream(0, -_usedBitCount & 0x7);
-
+		PadToByte();
 		AppendToBitStream(value >> 24 & 0xFF, 8);
 		AppendToBitStream(value >> 16 & 0xFF, 8);		
 		AppendToBitStream(value >> 8 & 0xFF, 8);
 		AppendToBitStream(value & 0xFF, 8);
 	}
 
+
+	void WriteBytes(const unsigned char* source, uint16_t length)
+	{ 
+		Flush();
+		memcpy(stream, source, length);
+		stream += length;
+	}
+
 	int64_t byteswritten() const
 	{
 		assert(_usedBitCount == 0);
-		return _stream - _start;
+		return stream - start;
 	}
 
-	int64_t AvailableBytes() const 	{ return _streamEnd - _stream; }
+	int64_t AvailableBytes() const 	{ return streamEnd - stream; }
 
-	unsigned char* _streamEnd = nullptr;
-	unsigned char* _stream = nullptr;
+
+	int64_t CheckOutputBuffer(int64_t length)
+	{
+		auto available = AvailableBytes();
+
+		if (IsEnough(available, length))
+			 return available;
+
+		if (buffers.size() != 0)
+		{
+			 buffers[buffers.size()- 1]->bytesStored = safecast(stream - start);
+		}
+
+		auto buffer = std::make_unique<bufferHelper>(1000000);
+		stream = start = buffer->buffer;
+		streamEnd = buffer->buffer + buffer->capacity;
+
+		buffers.push_back(std::move(buffer));
+		return AvailableBytes();
+
+	}
+
+	bool IsEnough(int64_t available, int64_t length)
+	{
+		if (fixedOutputBuffer)
+			return true;
+
+		if (available > 2 * length)
+			return true;
+
+		return available > 1 << 18; 
+	}
+
 private:
 
 	void writebyte(unsigned char b)
 	{
-		*_stream = b;
-		_stream++;
+		*stream = b;
+		stream++;
 	}
 
 	void write(uint32_t val)
 	{
-		*(uint32_t*)_stream = val;
-		_stream += 4;
+		*(uint32_t*)stream = val;
+		stream += 4;
 	}
-
-
-	
-	unsigned char* _start = nullptr;
-	
-	uint64_t _bitBuffer = 0;
-	int _usedBitCount  = 0;
+	 
 	
 };
 
