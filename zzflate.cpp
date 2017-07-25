@@ -82,7 +82,7 @@ const distanceRecord distanceTable[32]{
 	0, 32768,
 };
 
-unsigned char distanceLut[32769];
+uint8_t distanceLut[32769];
 
  
 
@@ -90,13 +90,13 @@ struct header
 {
 	union
 	{
-		struct { unsigned char CM : 4, CINFO : 4; } fieldsCMF;
-		unsigned char CMF;
+		struct { uint8_t CM : 4, CINFO : 4; } fieldsCMF;
+		uint8_t CMF;
 	};
 	union
 	{
-		struct { unsigned char FCHECK : 4, FDICT : 1, FLEVEL : 3; } fieldsFLG;
-		unsigned char FLG;
+		struct { uint8_t FCHECK : 4, FDICT : 1, FLEVEL : 3; } fieldsFLG;
+		uint8_t FLG;
 	};
 };
 
@@ -146,7 +146,7 @@ void buildLengthLookup()
 }
 
 
-void ZzFlateEncode(unsigned char *dest, unsigned long *destLen, const unsigned char *source, size_t sourceLen, int level)
+void ZzFlateEncode(uint8_t *dest, unsigned long *destLen, const uint8_t *source, size_t sourceLen, int level)
 {
 	if (level < 0 || level >3)
 	{
@@ -173,7 +173,7 @@ void ZzFlateEncode(unsigned char *dest, unsigned long *destLen, const unsigned c
 
 
 
-void ZzFlateEncode2(const unsigned char *source, size_t sourceLen, int level, std::function<bool(const bufferHelper&)> callback)
+void ZzFlateEncode2(const uint8_t *source, size_t sourceLen, int level, std::function<bool(const bufferHelper&)> callback)
 {
 	if (level < 0 || level >3)
 	{

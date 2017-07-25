@@ -6,7 +6,7 @@
 
 TEST(BitOutput, TestSimple)
 {
-	std::vector<unsigned char> buffer;
+	std::vector<uint8_t> buffer;
 	buffer.resize(100);
 	outputbitstream strm(&buffer[0], 100);
 
@@ -24,7 +24,7 @@ TEST(BitOutput, TestSimple)
 
 TEST(BitOutput, TestSimple2)
 {
-	std::vector<unsigned char> buffer(100);
+	std::vector<uint8_t> buffer(100);
 	outputbitstream strm(&buffer[0], 100);
 
 	strm.AppendToBitStream(3, 2);

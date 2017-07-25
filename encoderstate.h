@@ -36,7 +36,7 @@ extern lengthRecord  lengthTable[259];
 extern code  lengthCodes[259];
 
 extern const distanceRecord distanceTable[32]; 
-extern unsigned char distanceLut[32769];
+extern uint8_t distanceLut[32769];
 
 enum CurrentBlockType
 {
@@ -56,7 +56,6 @@ struct compressionRecord
 struct EncoderState
 {
 private:
-	const unsigned char* source;
 	CurrentBlockType type;
 	int level;
 	std::vector<compressionRecord> comprecords;
@@ -100,9 +99,8 @@ public:
 
 public:
 
-	EncoderState(int level, unsigned char* outputBuffer, int64_t bytes) :
+	EncoderState(int level, uint8_t* outputBuffer, int64_t bytes) :
 		stream(outputBuffer, bytes),
-		source(),
 		level(level)
  	{ 
 		Init();
@@ -111,7 +109,6 @@ public:
 
 	EncoderState(int level) :
 		stream(nullptr, 0),
-	    source(),
 		level(level)
  	{
  		Init();
@@ -179,7 +176,7 @@ public:
 
 
 
-	void WriteRecords(const unsigned char* src, const std::vector<compressionRecord>& vector)
+	void WriteRecords(const uint8_t* src, const std::vector<compressionRecord>& vector)
 	{
 		int offset = 0;
 		for (auto r : vector)
@@ -258,7 +255,7 @@ public:
 	//*	
 		// This hashfunction is broken: it skips the first byte.
 		// Any attempt to fix it ruins compression ratios, strangely enough. 
-	static unsigned int CalcHash(const unsigned char * ptr)
+	static unsigned int CalcHash(const uint8_t * ptr)
 	{
 		const uint32_t* ptr32 = reinterpret_cast<const uint32_t*>(ptr);
 		auto val = (*ptr32 >> 8) * 0x00d68664u;
@@ -268,7 +265,7 @@ public:
 
 	/*/
 
-		 static unsigned int CalcHash(const unsigned char * ptr)
+		 static unsigned int CalcHash(const uint8_t * ptr)
 		 {
 			 const uint32_t* ptr32 = reinterpret_cast<const uint32_t*>(ptr);
 			 auto n = (*ptr32);
@@ -276,7 +273,7 @@ public:
 		 }
 
 	//*/
-	static int remain(const unsigned char* a, const unsigned char* b, int matchLength, int maxLength)
+	static int remain(const uint8_t* a, const uint8_t* b, int matchLength, int maxLength)
 	{
 		if (maxLength > 258)
 		{
@@ -293,7 +290,7 @@ public:
 	}
 
 
-	static __forceinline int countMatches(const unsigned char* a, const unsigned char* b, int maxLength)
+	static __forceinline int countMatches(const uint8_t* a, const uint8_t* b, int maxLength)
 	{
 
 		int matchLength = 0;
@@ -321,14 +318,13 @@ public:
 		}
 	}
 
-	int WriteBlockFixedHuff(int byteCount, int final)
+	int WriteBlockFixedHuff(const uint8_t * source, int byteCount, int final)
 	{
-		auto outputBytesAvailable = stream.CheckOutputBuffer(byteCount) -1;
 		StartBlock(FixedHuffman, final);
-
+		auto outputBytesAvailable = stream.CheckOutputBuffer(byteCount) - 1;
 		int64_t bitsAvailable = outputBytesAvailable * 8;
-		auto bytesToEncode = std::min(int((bitsAvailable + 8) / 9), byteCount);
-
+		auto bytesToEncode = byteCount;
+			 
 		for (int i = 0; i < bytesToEncode; ++i)
 		{
 			auto sourcePtr = source + i;
@@ -340,6 +336,7 @@ public:
 			if (unsigned(delta) < 0x8000)
 			{
 				auto matchLength = countMatches(source + i, source + offset, safecast(byteCount - i));
+
 				if (matchLength >= 3)
 				{
 					stream.AppendToBitStream(lcodes_f[matchLength].bits, lcodes_f[matchLength].length);
@@ -354,12 +351,12 @@ public:
 			stream.AppendToBitStream(code.bits, code.length);
 		}
 
-		FixHashTable(bytesToEncode);
+ 	 	FixHashTable(bytesToEncode);		 
 		stream.AppendToBitStream(codes_f[256]);
 		return bytesToEncode;
 	}
 
-	int WriteBlock2Pass(int byteCount, bool final)
+	int WriteBlock2Pass(const uint8_t * source, int byteCount, bool final)
 	{
 		int length = (byteCount < 256000 && final) ? byteCount : std::min(256000, byteCount - 258);
 		comprecords.resize(maxRecords);
@@ -405,7 +402,7 @@ public:
 			}
 
 			symbolFreqs[source[i]]++;
-		}
+		 }
 
 		length = std::max(length, backRefEnd);
 
@@ -436,7 +433,7 @@ public:
 
 
 
-	int WriteUncompressedBlock(int byteCount, int final)
+	int WriteUncompressedBlock(const uint8_t* source, int byteCount, int final)
 	{
 		auto length = std::min(byteCount, 0xFFFF);
 
@@ -462,19 +459,19 @@ public:
 
 
 
-	int WriteDeflateBlock(int inputLength, bool final)
+	int WriteDeflateBlock(const uint8_t * source,int inputLength, bool final)
 	{
 		if (level == 0)
 		{
-			return WriteUncompressedBlock(inputLength, final);
+			return WriteUncompressedBlock(source, inputLength, final);
 		}
 		else if (level == 1)
 		{
-			return WriteBlockFixedHuff(inputLength, final);
+			return WriteBlockFixedHuff(source, inputLength, final);
 		}
 		else if (level == 2)
 		{
-			return WriteBlock2Pass(inputLength, final);
+			return WriteBlock2Pass(source, inputLength, final);
 		}
 
 		return -1;
@@ -482,13 +479,12 @@ public:
 
 
 
-	bool AddData(const unsigned char* start, const unsigned char* end, uint32_t& adler)
+	bool AddData(const uint8_t* start, const uint8_t* end, uint32_t& adler)
 	{ 
 		while (start != end)
 		{
-			source = start;
-			
-			auto bytesRead = WriteDeflateBlock(safecast(end - start), true);
+		 	
+			auto bytesRead = WriteDeflateBlock(start, safecast(end - start), true);
 			if (bytesRead <= 0)
 				return false;
 

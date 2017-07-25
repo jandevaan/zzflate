@@ -9,7 +9,7 @@
 
 #include "safeint.h" 
 #include "huffman.h"
-uint32_t adler32x(uint32_t startValue, const unsigned char *data, size_t len);
+uint32_t adler32x(uint32_t startValue, const uint8_t *data, size_t len);
 
 struct code
 {  
@@ -30,13 +30,13 @@ struct bufferHelper
 	bufferHelper(const bufferHelper& a) = default;
 
 	bufferHelper(int capacity) :
-		buffer(new unsigned char[capacity]),
+		buffer(new uint8_t[capacity]),
 		capacity(capacity),
 		bytesStored(0)
 	{
 	}
 
-	unsigned char* buffer;
+	uint8_t* buffer;
 	int bytesStored;
 	int capacity;
 };
@@ -48,20 +48,20 @@ struct outputbitstream
 { 
 
 private:
-	unsigned char* start = nullptr;
+	uint8_t* start = nullptr;
 
 	uint64_t _bitBuffer = 0;
 	int _usedBitCount = 0;
  	 
-	unsigned char* streamEnd = nullptr;
-	unsigned char* stream = nullptr;
+	uint8_t* streamEnd = nullptr;
+	uint8_t* stream = nullptr;
 	bool fixedOutputBuffer;
 public:
 	std::vector<std::unique_ptr<bufferHelper>> buffers;
  
 	outputbitstream(const outputbitstream& strm) = delete;
  	
-	outputbitstream(unsigned char* stream, int64_t byteCount) :
+	outputbitstream(uint8_t* stream, int64_t byteCount) :
 		fixedOutputBuffer(stream != nullptr),
 		start(stream),
 		stream(stream),
@@ -146,7 +146,7 @@ public:
 	}
 
 
-	void WriteBytes(const unsigned char* source, uint16_t length)
+	void WriteBytes(const uint8_t* source, uint16_t length)
 	{ 
 		Flush();
 		memcpy(stream, source, length);
@@ -196,7 +196,7 @@ public:
 
 private:
 
-	void writebyte(unsigned char b)
+	void writebyte(uint8_t b)
 	{
 		*stream = b;
 		stream++;
