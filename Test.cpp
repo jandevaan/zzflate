@@ -165,7 +165,7 @@ int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compressio
 	auto testSize = bufferUncompressed.size();
 	auto  compressed = std::vector<uint8_t>();
 
-	if (compression != 0)
+	if (compression == 2)
 	{
 		unsigned long compressedLength = testSize + (testSize >> 7);
 		compressed.resize(compressedLength);
