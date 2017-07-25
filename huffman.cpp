@@ -119,7 +119,7 @@ static int CalculateTree(const std::vector<int>& symbolFreqs, int minFreq, std::
 	return maxLength;
 }
 
-int CalcLengths(const std::vector<int>& symbolFreqs, std::vector<int>& lengths, int maxLength)
+void CalcLengths(const std::vector<int>& symbolFreqs, std::vector<int>& lengths, int maxLength)
 {
 	int minFreq = 0;
 	std::vector<treeItem> tree;
@@ -140,7 +140,7 @@ int CalcLengths(const std::vector<int>& symbolFreqs, std::vector<int>& lengths, 
 
 				lengths[t.left] = t.bits;
 			}
-			return safecast(lengths.size());
+			return;
 		}
 
 		int total = 0;

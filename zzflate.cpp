@@ -9,44 +9,24 @@
 
 lengthRecord  lengthTable[259];
 
- code EncoderState::codes_f[288]; // literals
+ code EncoderState::codes_f[286]; // literals
  code EncoderState::lcodes_f[259]; // table to send lengths (symbol + extra bits for all 258)
  code EncoderState::dcodes_f[32];
-
-
-const int lengthCodeTable[] = {
-	257,  0,
-	258,  0,
-	259,  0,
-	260,  0,
-	261,  0,
-	262,  0,
-	263,  0,
-	264,  0,
-	265,  1,
-	266,  1,
-	267,  1,
-	268,  1,
-	269,  2,
-	270,  2,
-	271,  2,
-	272,  2,
-	273,  3,
-	274,  3,
-	275,  3,
-	276,  3,
-	277,  4,
-	278,  4,
-	279,  4,
-	280,  4,
-	281,  5,
-	282,  5,
-	283,  5,
-	284,  5
-};
-
-
-
+ uint8_t EncoderState::extraDistanceBits[32] = { 0,0,0,0, 1,1,2,2, 3,3,4,4, 5,5,6,6, 7,7,8,8, 9,9,10,10, 11,11,12,12, 13,13,0,0 };
+ 
+ uint8_t EncoderState::extraLengthBits[286] = 
+ {
+	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
+	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
+	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
+	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
+	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
+	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
+	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
+	 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,
+	 0, 0,0,0,0, 0,0,0,0, 1,1,1,1, 2,2,2,2, 3,3,3,3, 4,4,4,4, 5,5,5,5, 0 
+ };
+  
 const distanceRecord distanceTable[32]{
 	0,1,
 	0,2,
@@ -126,12 +106,12 @@ void buildLengthLookup()
 
 	for (int i = 0; i < 28; ++i)
 	{
-		auto code = lengthCodeTable[i * 2];
-		auto bits = lengthCodeTable[i * 2 + 1];
+		 int calccode = 257 + i;
+		 int bits = EncoderState::extraLengthBits[calccode];
 
 		for (int j = 0; j < (1 << bits); ++j)
 		{
-			lengthTable[offset++] = { safecast(code), safecast(j), safecast(bits) };
+			lengthTable[offset++] = { safecast(calccode), safecast(j), safecast(bits) };
 		}
 	}
 

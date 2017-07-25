@@ -3,13 +3,15 @@
  
 #include "config.h" 
 #include <functional>
+#include <algorithm>
 #include "huffman.h" 
 #include "outputbitstream.h"
+
 namespace
 {
 	const char order[] = { 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15 };
 
-	const int hashBits = 12;
+	const int hashBits = 13;
 	const unsigned hashSize = 1 << hashBits;
 	const unsigned hashMask = hashSize -1;
 	const int maxRecords = 20000;
@@ -59,14 +61,19 @@ private:
 	CurrentBlockType type;
 	int level;
 	std::vector<compressionRecord> comprecords;
-	std::vector<int> lengths = std::vector<int>(288);
+	std::vector<int> lengths = std::vector<int>(286);
 
 	// for fixed huffman encoding
-	static code codes_f[288]; // literals
+	static code codes_f[286]; // literals
 	static code lcodes_f[259]; // table to send lengths (symbol + extra bits for all 258)
 	static code dcodes_f[32];
 
-	code codes[288]; // literals
+public:
+	static uint8_t extraLengthBits[286];
+	static uint8_t extraDistanceBits[32];
+
+
+	code codes[286]; // literals
 	code lcodes[259]; // table to send lengths (symbol + extra bits for all 258)
 	code dcodes[32];
 	int hashtable[hashSize];
@@ -215,10 +222,16 @@ public:
 			}
 		}
 	}
+	int64_t userBlockBitLength = 0;
 
-	std::vector<lenghtRecord> ComputeCodes(const std::vector<int>& frequencies, std::vector<int>& codeLengthFreqs, code* outputCodes)
+	std::vector<lenghtRecord> ComputeCodes(const std::vector<int>& frequencies, std::vector<int>& codeLengthFreqs, const uint8_t* extraBits, code* outputCodes)
 	{
 		CalcLengths(frequencies, lengths, 15);
+		for (int i = 0; i < frequencies.size(); ++i)
+		{
+			int64_t length = lengths[i] + extraBits[i]; 
+			userBlockBitLength += frequencies[i] * length;
+		}
 		huffman::generate<code>(lengths, outputCodes);
 		return FromLengths(lengths, codeLengthFreqs);
 	}
@@ -236,19 +249,21 @@ public:
 	void DetermineAndWriteCodes(const std::vector<int>& symbolFreqs, const std::vector<int>& distanceFrequencies)
 	{
 		std::vector<int> lengthfrequencies(19, 0);
-
-		auto symbolMetaCodes = ComputeCodes(symbolFreqs, lengthfrequencies, codes);
-		auto distMetaCodes = ComputeCodes(distanceFrequencies, lengthfrequencies, dcodes);
+	//	LogDistances(distanceFrequencies);
+		userBlockBitLength = 0;
+		auto symbolMetaCodes = ComputeCodes(symbolFreqs, lengthfrequencies, EncoderState::extraLengthBits, codes);
+		auto distMetaCodes = ComputeCodes(distanceFrequencies, lengthfrequencies, EncoderState::extraDistanceBits, dcodes);
 
 		auto metaCodes = std::vector<code>(19);
 		CalcLengths(lengthfrequencies, lengths, 7);
 		huffman::generate<code>(lengths, &metaCodes[0]);
 
-		LengthCounter lengthCounter = { 5 + 5 + 4 + 3 * 19 };
+		LengthCounter lengthCounter = { 5 + 5 + 4 + 3 * 19  + userBlockBitLength };
 		WriteLengths(lengthCounter, symbolMetaCodes, metaCodes);
-		WriteLengths(lengthCounter, distMetaCodes, metaCodes);
- 
+		WriteLengths(lengthCounter, distMetaCodes, metaCodes); 
 	
+	//	std::cout << "Total bits to write: " << lengthCounter.totalLength;
+
 		// write the table
 		stream.AppendToBitStream(safecast(symbolFreqs.size() - 257), 5);
 		stream.AppendToBitStream(safecast(distanceFrequencies.size() - 1), 5); // distance code count
@@ -267,6 +282,13 @@ public:
 
 
 		CreateMergedLengthCodes(lcodes, codes);
+	}
+
+	void LogDistances(const std::vector<int> & distanceFrequencies)
+	{
+		int distCount = 0;
+		for (auto n : distanceFrequencies) { distCount += n; }
+		std::cout << "\r\n Distances " << distCount << " ";
 	}
 
 	//*	
@@ -402,6 +424,8 @@ public:
 				if (matchLength >= 3)
 				{
 					symbolFreqs[lengthTable[matchLength].code]++;
+					distanceFrequencies[distanceLut[i - offset]]++;
+
 					comprecords[recordCount++] = { (i - backRefEnd), safecast(i - offset), safecast(matchLength) };
 					int nextI = i + matchLength - 1;
 					while (i < nextI)
@@ -440,6 +464,7 @@ public:
 
 		StartBlock(type, final);
 
+		int64_t currentPos = stream.BitsWritten();
 		if (type == UserDefinedHuffman)
 		{
 			DetermineAndWriteCodes(symbolFreqs, distanceFrequencies);
@@ -449,6 +474,8 @@ public:
 
 		stream.AppendToBitStream(codes[256]);
 
+//		std::cout << "Actual written" << (currentPos - stream.BitsWritten() ) ;
+		 
 		return length;
 	}
 

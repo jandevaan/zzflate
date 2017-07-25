@@ -35,7 +35,7 @@ struct lenghtRecord
 
 
 std::vector<lenghtRecord> FromLengths(const std::vector<int> lengths, std::vector<int>& freqs);
-int CalcLengths(const std::vector<int>& symbolFreqs, std::vector<int>& lengths, int maxLength);
+void CalcLengths(const std::vector<int>& symbolFreqs, std::vector<int>& lengths, int maxLength);
 
 
 namespace  huffman
