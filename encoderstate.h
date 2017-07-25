@@ -199,12 +199,13 @@ public:
 
 
 
-
-	void WriteLengths(const std::vector<lenghtRecord>& records, const std::vector<code>& table)
+	template<class STREAMTYPE>
+	static void WriteLengths(STREAMTYPE& stream, const std::vector<lenghtRecord>& records, const std::vector<code>& table)
 	{
 		for (auto r : records)
 		{
-			stream.AppendToBitStream(table[r.value]);
+			const code& entry = table[r.value];
+			stream.AppendToBitStream(entry.bits, entry.length);
 			switch (r.value)
 			{
 			case 16: stream.AppendToBitStream(r.payLoad - 3, 2); break;
@@ -222,6 +223,16 @@ public:
 		return FromLengths(lengths, codeLengthFreqs);
 	}
 
+	struct LengthCounter
+	{
+		void AppendToBitStream(int _, int length)
+		{
+			totalLength += length;
+		}
+		
+		int totalLength;
+	};
+
 	void DetermineAndWriteCodes(const std::vector<int>& symbolFreqs, const std::vector<int>& distanceFrequencies)
 	{
 		std::vector<int> lengthfrequencies(19, 0);
@@ -233,6 +244,11 @@ public:
 		CalcLengths(lengthfrequencies, lengths, 7);
 		huffman::generate<code>(lengths, &metaCodes[0]);
 
+		LengthCounter lengthCounter = { 5 + 5 + 4 + 3 * 19 };
+		WriteLengths(lengthCounter, symbolMetaCodes, metaCodes);
+		WriteLengths(lengthCounter, distMetaCodes, metaCodes);
+ 
+	
 		// write the table
 		stream.AppendToBitStream(safecast(symbolFreqs.size() - 257), 5);
 		stream.AppendToBitStream(safecast(distanceFrequencies.size() - 1), 5); // distance code count
@@ -242,9 +258,10 @@ public:
 		{
 			stream.AppendToBitStream(lengths[order[i]], 3);
 		}
+		 
 
-		WriteLengths(symbolMetaCodes, metaCodes);
-		WriteLengths(distMetaCodes, metaCodes);
+		WriteLengths(stream, symbolMetaCodes, metaCodes);
+		WriteLengths(stream, distMetaCodes, metaCodes);
 
 		// update code tables 
 

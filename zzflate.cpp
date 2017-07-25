@@ -198,6 +198,4 @@ void ZzFlateEncode2(const uint8_t *source, size_t sourceLen, int level, std::fun
 	{
 		callback(*buf);
 	}
-
-//	*destLen = safecast(state->stream.byteswritten());
 }
