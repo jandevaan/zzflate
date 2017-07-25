@@ -320,12 +320,16 @@ public:
 
 	int WriteBlockFixedHuff(const uint8_t * source, int byteCount, int final)
 	{
-		StartBlock(FixedHuffman, final);
 		auto outputBytesAvailable = stream.CheckOutputBuffer(byteCount) - 1;
 		int64_t bitsAvailable = outputBytesAvailable * 8;
-		auto bytesToEncode = byteCount;
+		auto bytesToEncode = std::min(int64_t(byteCount), bitsAvailable / 9 - 8);
+		if (bytesToEncode != byteCount)
+		{
+			final = 0;
+		}
+		StartBlock(FixedHuffman, final);
 			 
-		for (int i = 0; i < bytesToEncode; ++i)
+		for (int64_t i = 0; i < bytesToEncode; ++i)
 		{
 			auto sourcePtr = source + i;
 			auto newHash = CalcHash(sourcePtr);
@@ -335,7 +339,7 @@ public:
 			auto delta = i - offset;
 			if (unsigned(delta) < 0x8000)
 			{
-				auto matchLength = countMatches(source + i, source + offset, safecast(byteCount - i));
+				auto matchLength = countMatches(source + i, source + offset, safecast(bytesToEncode - i));
 
 				if (matchLength >= 3)
 				{
