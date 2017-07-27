@@ -165,7 +165,7 @@ int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compressio
 	auto testSize = bufferUncompressed.size();
 	auto  compressed = std::vector<uint8_t>();
 
-	if (compression == 2)
+	if (false)
 	{
 		unsigned long compressedLength = testSize + (testSize >> 7);
 		compressed.resize(compressedLength);
@@ -174,15 +174,14 @@ int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compressio
 	}
 	else
 	{ 
-		std::function<bool(const bufferHelper )> callback = [&compressed](auto h)->bool
+		ZzFlateEncode2(&bufferUncompressed[0], bufferUncompressed.size(), compression, [&compressed](auto h)->bool
 		{
 			for (int i = 0; i < h.bytesStored; ++i)
 			{
 				compressed.push_back(h.buffer[i]);
 			}
- 			return false;
-		};
- 		ZzFlateEncode2(&bufferUncompressed[0], bufferUncompressed.size(), compression, callback);
+			return false;
+		});
 	}
 	auto comp_len = compressed.size();
 	std::cout << std::fixed;
@@ -214,6 +213,8 @@ int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compressio
 int main(int ac, char* av[])
 {
 	buildLengthLookup();
+
+	testroundtrip(readFile("c:\\dev\\corpus\\ptt5"), 2);
 
 	testing::InitGoogleTest(&ac, av);
 	return RUN_ALL_TESTS();

@@ -169,6 +169,7 @@ public:
 	{
 		auto bucketId = distanceLut[offset];
 		auto bucket = distanceTable[bucketId];
+		 
 		stream.AppendToBitStream(distCodes[bucketId]);
 		stream.AppendToBitStream(offset - bucket.distanceStart, bucket.bits);
 	}
@@ -226,6 +227,7 @@ public:
 
 	std::vector<lenghtRecord> ComputeCodes(const std::vector<int>& frequencies, std::vector<int>& codeLengthFreqs, const uint8_t* extraBits, code* outputCodes)
 	{
+		 
 		CalcLengths(frequencies, lengths, 15);
 		for (int i = 0; i < frequencies.size(); ++i)
 		{
@@ -248,10 +250,9 @@ public:
 
 	void DetermineAndWriteCodes(const std::vector<int>& symbolFreqs, const std::vector<int>& distanceFrequencies)
 	{
-		std::vector<int> lengthfrequencies(19, 0);
-	//	LogDistances(distanceFrequencies);
 		userBlockBitLength = 0;
-		auto symbolMetaCodes = ComputeCodes(symbolFreqs, lengthfrequencies, EncoderState::extraLengthBits, codes);
+		std::vector<int> lengthfrequencies(19, 0);
+	 	auto symbolMetaCodes = ComputeCodes(symbolFreqs, lengthfrequencies, EncoderState::extraLengthBits, codes);
 		auto distMetaCodes = ComputeCodes(distanceFrequencies, lengthfrequencies, EncoderState::extraDistanceBits, dcodes);
 
 		auto metaCodes = std::vector<code>(19);
@@ -262,8 +263,8 @@ public:
 		WriteLengths(lengthCounter, symbolMetaCodes, metaCodes);
 		WriteLengths(lengthCounter, distMetaCodes, metaCodes); 
 	
-	//	std::cout << "Total bits to write: " << lengthCounter.totalLength;
-
+		std::cout << "Total bits to write: " << lengthCounter.totalLength;
+		 
 		// write the table
 		stream.AppendToBitStream(safecast(symbolFreqs.size() - 257), 5);
 		stream.AppendToBitStream(safecast(distanceFrequencies.size() - 1), 5); // distance code count
@@ -279,8 +280,6 @@ public:
 		WriteLengths(stream, distMetaCodes, metaCodes);
 
 		// update code tables 
-
-
 		CreateMergedLengthCodes(lcodes, codes);
 	}
 
@@ -406,7 +405,7 @@ public:
 
 		auto symbolFreqs = std::vector<int>(286, 0);
 
-		auto distanceFrequencies = std::vector<int>(30, 1);
+		auto distanceFrequencies = std::vector<int>(30, 0);
 		int backRefEnd = 0;
 
 		int recordCount = 0;
@@ -452,17 +451,15 @@ public:
 		length = std::max(length, backRefEnd);
 
 		symbolFreqs[256]++;
-
-		if (length < byteCount)
-		{
-			final = false;
-		}
-
+		 
 		comprecords[recordCount++] = { safecast(length - backRefEnd), 0,0 };
 		comprecords.resize(recordCount);
 		FixHashTable(length);
 
-		StartBlock(type, final);
+		std::cout << "\r\n";
+
+		stream.CheckOutputBuffer(length);
+		StartBlock(type, length < byteCount ? 0 : final);
 
 		int64_t currentPos = stream.BitsWritten();
 		if (type == UserDefinedHuffman)
@@ -474,7 +471,7 @@ public:
 
 		stream.AppendToBitStream(codes[256]);
 
-//		std::cout << "Actual written" << (currentPos - stream.BitsWritten() ) ;
+		std::cout << "Actual writtn" << (currentPos - stream.BitsWritten() ) ;
 		 
 		return length;
 	}

@@ -133,12 +133,14 @@ void CalcLengths(const std::vector<int>& symbolFreqs, std::vector<int>& lengths,
 		{
 			lengths.resize(symbolFreqs.size());
 
+			 
+
 			for (auto t : tree)
 			{
 				if (t.right != ~0)
 					break;
-
-				lengths[t.left] = t.bits;
+				 
+				lengths[t.left] = t.frequency == 0 ? 0 : std::max(1,t.bits);
 			}
 			return;
 		}
