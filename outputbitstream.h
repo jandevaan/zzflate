@@ -160,9 +160,9 @@ public:
 	}
 
 	int64_t AvailableBytes() const 	{ return streamEnd - stream; }
-	int64_t BitsWritten() const { return _usedBitCount + (start - stream) * 8;  }
+	int64_t BitsWritten() const { return - (_usedBitCount + (  stream - start) * 8);  }
 
-	int64_t CheckOutputBuffer(int64_t length)
+	int64_t EnsureOutputLength(int64_t length)
 	{
 		auto available = AvailableBytes();
 

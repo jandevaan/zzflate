@@ -133,8 +133,6 @@ void CalcLengths(const std::vector<int>& symbolFreqs, std::vector<int>& lengths,
 		{
 			lengths.resize(symbolFreqs.size());
 
-			 
-
 			for (auto t : tree)
 			{
 				if (t.right != ~0)
@@ -151,7 +149,7 @@ void CalcLengths(const std::vector<int>& symbolFreqs, std::vector<int>& lengths,
 			total += n;
 		}
 
-		minFreq += total / (1 << maxLength);
+		minFreq += std::max(1,total / (1 << maxLength));
 	}
 }
 

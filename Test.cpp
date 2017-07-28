@@ -107,7 +107,7 @@ int uncompress(uint8_t *dest, size_t *destLen, const uint8_t *source, size_t sou
 }
 std::vector<uint8_t> bufferCompressed = std::vector<uint8_t>(1500000);
 
-int testroundtripperf(std::vector<uint8_t>& bufferUncompressed, int compression)
+int testroundtripperf(const std::vector<uint8_t>& bufferUncompressed, int compression)
 { 
 	bufferCompressed.resize(int(bufferUncompressed.size() * 1.01)); 
 	
@@ -145,7 +145,7 @@ int testroundtripperfzlib(const std::vector<uint8_t>& bufferUncompressed, int co
 	uLong source_len = safecast(bufferUncompressed.size());
 	auto testSize = source_len; 
 	uLongf comp_len = 0;
-
+	bufferCompressed.resize(bufferUncompressed.size());
 	for (int i = 0; i < repeatcount; ++i)
 	{
 		comp_len = safecast(bufferCompressed.size());
@@ -213,9 +213,7 @@ int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compressio
 int main(int ac, char* av[])
 {
 	buildLengthLookup();
-
-	testroundtrip(readFile("c:\\dev\\corpus\\ptt5"), 2);
-
+	 
 	testing::InitGoogleTest(&ac, av);
 	return RUN_ALL_TESTS();
 }
@@ -236,6 +234,18 @@ TEST(ZzFlate, UserHuffman)
 	testroundtrip(bufferUncompressed, 2);
 }
  
+
+TEST(ZzFlate, SmallZerBouffer)
+{
+	std::vector<uint8_t> zeroBuffer;
+	for (int i = 1; i < 400; ++i)
+	{
+		zeroBuffer.resize(i);
+		testroundtrip(zeroBuffer, 2);
+	}
+}
+
+
 
 TEST(ZzFlate, CanterburyZzflate)
 {
@@ -265,6 +275,22 @@ TEST(ZzFlate, CanterburyZlib)
 	}
 }
    
+TEST(ZzFlate, MovieZlib)
+{
+	for (auto x : directory("c://dev//movie"))
+	{
+		testroundtripperfzlib(readFile(x), 1, x, 1);
+	}
+}
+
+TEST(ZzFlate, Movie)
+{
+	for (auto x : directory("c://dev//movie"))
+	{
+		testroundtripperf(readFile(x), 2);
+	}
+}
+
 
 TEST(ZzxFlatePerf, UncompressedPerf)
 {

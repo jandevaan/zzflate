@@ -7,16 +7,7 @@
 #include "huffman.h" 
 #include "outputbitstream.h"
 
-namespace
-{
-	const char order[] = { 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15 };
-
-	const int hashBits = 13;
-	const unsigned hashSize = 1 << hashBits;
-	const unsigned hashMask = hashSize -1;
-	const int maxRecords = 20000;
-} 
- 
+  
 struct lengthRecord
 {
 	short code;
@@ -57,6 +48,11 @@ struct compressionRecord
 
 struct EncoderState
 {
+	static const int hashBits = 13;
+	static const unsigned hashSize = 1 << hashBits;
+	static const unsigned hashMask = hashSize - 1;
+	static const int maxRecords = 20000;
+
 private:
 	CurrentBlockType type;
 	int level;
@@ -68,9 +64,11 @@ private:
 	static code lcodes_f[259]; // table to send lengths (symbol + extra bits for all 258)
 	static code dcodes_f[32];
 
+	static const uint8_t order[19];
+
 public:
-	static uint8_t extraLengthBits[286];
-	static uint8_t extraDistanceBits[32];
+	static const uint8_t extraLengthBits[286];
+	static const uint8_t extraDistanceBits[32];
 
 
 	code codes[286]; // literals
@@ -240,7 +238,7 @@ public:
 
 	struct LengthCounter
 	{
-		void AppendToBitStream(int _, int length)
+		void AppendToBitStream(int, int length)
 		{
 			totalLength += length;
 		}
@@ -259,11 +257,11 @@ public:
 		CalcLengths(lengthfrequencies, lengths, 7);
 		huffman::generate<code>(lengths, &metaCodes[0]);
 
-		LengthCounter lengthCounter = { 5 + 5 + 4 + 3 * 19  + userBlockBitLength };
+		LengthCounter lengthCounter = { safecast(5 + 5 + 4 + 3 * 19  + userBlockBitLength) };
 		WriteLengths(lengthCounter, symbolMetaCodes, metaCodes);
 		WriteLengths(lengthCounter, distMetaCodes, metaCodes); 
 	
-		std::cout << "Total bits to write: " << lengthCounter.totalLength;
+		//std::cout << "Total bits to write: " << lengthCounter.totalLength;
 		 
 		// write the table
 		stream.AppendToBitStream(safecast(symbolFreqs.size() - 257), 5);
@@ -358,16 +356,16 @@ public:
 
 	int WriteBlockFixedHuff(const uint8_t * source, int byteCount, int final)
 	{
-		auto outputBytesAvailable = stream.CheckOutputBuffer(byteCount) - 1;
+		auto outputBytesAvailable = stream.EnsureOutputLength(byteCount) - 1;
 		int64_t bitsAvailable = outputBytesAvailable * 8;
-		auto bytesToEncode = std::min(int64_t(byteCount), bitsAvailable / 9 - 8);
+		int bytesToEncode = std::min(int64_t(byteCount), bitsAvailable / 9 - 8);
 		if (bytesToEncode != byteCount)
 		{
 			final = 0;
 		}
 		StartBlock(FixedHuffman, final);
 			 
-		for (int64_t i = 0; i < bytesToEncode; ++i)
+		for (int i = 0; i < bytesToEncode; ++i)
 		{
 			auto sourcePtr = source + i;
 			auto newHash = CalcHash(sourcePtr);
@@ -455,23 +453,20 @@ public:
 		comprecords[recordCount++] = { safecast(length - backRefEnd), 0,0 };
 		comprecords.resize(recordCount);
 		FixHashTable(length);
-
-		std::cout << "\r\n";
-
-		stream.CheckOutputBuffer(length);
 		StartBlock(type, length < byteCount ? 0 : final);
-
 		int64_t currentPos = stream.BitsWritten();
-		if (type == UserDefinedHuffman)
-		{
-			DetermineAndWriteCodes(symbolFreqs, distanceFrequencies);
-		}
 
+		int available = stream.EnsureOutputLength(length);
+		if (available < length)
+			return 0;
+
+		DetermineAndWriteCodes(symbolFreqs, distanceFrequencies);
+		 
 		WriteRecords(source, comprecords);
 
 		stream.AppendToBitStream(codes[256]);
 
-		std::cout << "Actual writtn" << (currentPos - stream.BitsWritten() ) ;
+	//	std::cout << "Actual writtn" << (currentPos - stream.BitsWritten() ) ;
 		 
 		return length;
 	}
@@ -484,18 +479,16 @@ public:
 
 		int worstCaseLength = 6 + length;
 		 
-		int outputbytesAvailable = stream.CheckOutputBuffer(worstCaseLength);
+		int outputbytesAvailable = stream.EnsureOutputLength(worstCaseLength);
 
 		length = std::min(length, outputbytesAvailable - 6);
 		 
-
-
 		if (length <= 40)
 			return 0;
 		 
 		StartBlock(Uncompressed, final && length == byteCount);
 		stream.PadToByte();
-		stream.WriteU16(length);
+		stream.WriteU16(safecast(length));
 		stream.WriteU16(uint16_t(~length));
 		stream.WriteBytes(source, length);
 
