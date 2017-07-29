@@ -23,13 +23,6 @@ struct distanceRecord
 };
 
 
-
-extern lengthRecord  lengthTable[259];
-
-extern code  lengthCodes[259];
-
-
-
 enum CurrentBlockType
 {
 	Uncompressed = 0b00,
@@ -62,6 +55,8 @@ private:
 	static code codes_f[286]; // literals
 	static code lcodes_f[259]; // table to send lengths (symbol + extra bits for all 258)
 	static code dcodes_f[32];
+
+	static lengthRecord  lengthTable[259]; 
 
 	static const uint8_t order[19];
 	static const distanceRecord distanceTable[32];

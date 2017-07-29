@@ -107,7 +107,7 @@ int uncompress(uint8_t *dest, size_t *destLen, const uint8_t *source, size_t sou
 }
 std::vector<uint8_t> bufferCompressed = std::vector<uint8_t>(1500000);
 
-int testroundtripperf(const std::vector<uint8_t>& bufferUncompressed, int compression)
+int testroundtripperf(const std::vector<uint8_t>& bufferUncompressed, int compression, int repeatcount = 10)
 { 
 	bufferCompressed.resize(int(bufferUncompressed.size() * 1.01)); 
 	
@@ -118,7 +118,7 @@ int testroundtripperf(const std::vector<uint8_t>& bufferUncompressed, int compre
 	times[0] = std::chrono::high_resolution_clock::now();
  
 
-	for (int i = 0; i < 10; ++i)
+	for (int i = 0; i < repeatcount; ++i)
 	{
 		comp_len = safecast(bufferCompressed.size());
 		ZzFlateEncode(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
@@ -128,10 +128,10 @@ int testroundtripperf(const std::vector<uint8_t>& bufferUncompressed, int compre
 		times[i + 1] = std::chrono::high_resolution_clock::now();
 	}
 
-	for(int i = 0; i < 10; ++i)
+	for(int i = 0; i < repeatcount; ++i)
 	{
 		auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(times[i + 1] - times[i]);
-		std::cout << microseconds.count() << " µs\n";
+		std::cout << microseconds.count()/1000 << " ms\n";
 	}
 
 	return 0;
@@ -285,7 +285,7 @@ TEST(ZzFlate, Movie)
 {
 	for (auto x : directory("c://dev//movie"))
 	{
-		testroundtripperf(readFile(x), 2);
+		testroundtripperf(readFile(x), 2, 1);
 	}
 }
 

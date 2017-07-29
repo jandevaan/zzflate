@@ -7,7 +7,7 @@
 
 #include "zzflate.h"
 
-lengthRecord  lengthTable[259];
+lengthRecord  EncoderState::lengthTable[259];
 
 code EncoderState::codes_f[286]; // literals
 code EncoderState::lcodes_f[259]; // table to send lengths (symbol + extra bits for all 258)
