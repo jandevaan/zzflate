@@ -120,7 +120,6 @@ int testroundtripperf(const std::vector<uint8_t>& bufferUncompressed, int compre
 
 	for (int i = 0; i < 10; ++i)
 	{
-		 
 		comp_len = safecast(bufferCompressed.size());
 		ZzFlateEncode(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
 		if (debugging)
@@ -129,7 +128,6 @@ int testroundtripperf(const std::vector<uint8_t>& bufferUncompressed, int compre
 		times[i + 1] = std::chrono::high_resolution_clock::now();
 	}
 
-	
 	for(int i = 0; i < 10; ++i)
 	{
 		auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(times[i + 1] - times[i]);
@@ -212,7 +210,7 @@ int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compressio
 
 int main(int ac, char* av[])
 {
-	buildLengthLookup();
+	StaticInit();
 	 
 	testing::InitGoogleTest(&ac, av);
 	return RUN_ALL_TESTS();

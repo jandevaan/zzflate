@@ -183,6 +183,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="adler.cpp" />
+    <ClCompile Include="Encoder.cpp" />
     <ClCompile Include="Test.cpp" />
     <ClCompile Include="huffman.cpp" />
     <ClCompile Include="TestBitOutput.cpp" />

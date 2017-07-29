@@ -28,8 +28,7 @@ extern lengthRecord  lengthTable[259];
 
 extern code  lengthCodes[259];
 
-extern const distanceRecord distanceTable[32]; 
-extern uint8_t distanceLut[32769];
+
 
 enum CurrentBlockType
 {
@@ -65,8 +64,9 @@ private:
 	static code dcodes_f[32];
 
 	static const uint8_t order[19];
-
+	static const distanceRecord distanceTable[32];
 public:
+	static uint8_t distanceLut[32769];
 	static const uint8_t extraLengthBits[286];
 	static const uint8_t extraDistanceBits[32];
 
@@ -119,6 +119,10 @@ public:
  		Init();
 	}
 
+	static void buildLengthLookup();
+	static void InitFixedHuffman();
+
+
 	static int FindDistance(int offset)
 	{
 		for (int n = 1; n < std::size(distanceTable); ++n)
@@ -150,19 +154,7 @@ public:
 	}
 
 
-	static void InitFixedHuffman()
-	{
-		huffman::generate<code>(huffman::defaultTableLengths(), codes_f);
-
-		for (int i = 0; i < 32; ++i)
-		{
-			dcodes_f[i] = code(5, huffman::reverse(i, 5));
-		}
-
-		CreateMergedLengthCodes(lcodes_f, codes_f);
-
-	}
-
+	
 	void WriteDistance(const code* distCodes, int offset)
 	{
 		auto bucketId = distanceLut[offset];
@@ -245,24 +237,35 @@ public:
 		
 		int totalLength;
 	};
+ 
 
-	void DetermineAndWriteCodes(const std::vector<int>& symbolFreqs, const std::vector<int>& distanceFrequencies)
+	int WriteBlock2Pass(const uint8_t * source, int byteCount, bool final)
 	{
+		auto symbolFreqs = std::vector<int>(286, 0);
+		auto distanceFrequencies = std::vector<int>(30, 0);
+		int length = FirstPass(source, byteCount, final, symbolFreqs, distanceFrequencies);
+
+		FixHashTable(length);
+
 		userBlockBitLength = 0;
 		std::vector<int> lengthfrequencies(19, 0);
-	 	auto symbolMetaCodes = ComputeCodes(symbolFreqs, lengthfrequencies, EncoderState::extraLengthBits, codes);
-		auto distMetaCodes = ComputeCodes(distanceFrequencies, lengthfrequencies, EncoderState::extraDistanceBits, dcodes);
+		auto symbolMetaCodes = ComputeCodes(symbolFreqs, lengthfrequencies, extraLengthBits, codes);
+		auto distMetaCodes = ComputeCodes(distanceFrequencies, lengthfrequencies, extraDistanceBits, dcodes);
 
 		auto metaCodes = std::vector<code>(19);
 		CalcLengths(lengthfrequencies, lengths, 7);
 		huffman::generate<code>(lengths, &metaCodes[0]);
 
-		LengthCounter lengthCounter = { safecast(5 + 5 + 4 + 3 * 19  + userBlockBitLength) };
+		LengthCounter lengthCounter = { safecast(3 + 5 + 5 + 4 + 3 * 19 + userBlockBitLength) };
 		WriteLengths(lengthCounter, symbolMetaCodes, metaCodes);
-		WriteLengths(lengthCounter, distMetaCodes, metaCodes); 
-	
-		//std::cout << "Total bits to write: " << lengthCounter.totalLength;
-		 
+		WriteLengths(lengthCounter, distMetaCodes, metaCodes);
+
+		int available = stream.EnsureOutputLength((lengthCounter.totalLength + 8) / 8);
+		if (available < length)
+			return 0;
+
+		StartBlock(type, length < byteCount ? 0 : final);
+
 		// write the table
 		stream.AppendToBitStream(safecast(symbolFreqs.size() - 257), 5);
 		stream.AppendToBitStream(safecast(distanceFrequencies.size() - 1), 5); // distance code count
@@ -272,13 +275,19 @@ public:
 		{
 			stream.AppendToBitStream(lengths[order[i]], 3);
 		}
-		 
+
 
 		WriteLengths(stream, symbolMetaCodes, metaCodes);
 		WriteLengths(stream, distMetaCodes, metaCodes);
 
 		// update code tables 
 		CreateMergedLengthCodes(lcodes, codes);
+
+		WriteRecords(source, comprecords);
+
+		stream.AppendToBitStream(codes[256]);
+
+		return length;
 	}
 
 	void LogDistances(const std::vector<int> & distanceFrequencies)
@@ -396,16 +405,13 @@ public:
 		return bytesToEncode;
 	}
 
-	int WriteBlock2Pass(const uint8_t * source, int byteCount, bool final)
+	int FirstPass(const uint8_t * source, int byteCount, bool final, std::vector<int> &symbolFreqs, std::vector<int> &distanceFrequencies)
 	{
 		int length = (byteCount < 256000 && final) ? byteCount : std::min(256000, byteCount - 258);
 		comprecords.resize(maxRecords);
+		symbolFreqs[256]++;
 
-		auto symbolFreqs = std::vector<int>(286, 0);
-
-		auto distanceFrequencies = std::vector<int>(30, 0);
 		int backRefEnd = 0;
-
 		int recordCount = 0;
 
 		for (int i = 0; i < length; ++i)
@@ -444,31 +450,15 @@ public:
 			}
 
 			symbolFreqs[source[i]]++;
-		 }
+		}
 
 		length = std::max(length, backRefEnd);
 
-		symbolFreqs[256]++;
-		 
+
 		comprecords[recordCount++] = { safecast(length - backRefEnd), 0,0 };
 		comprecords.resize(recordCount);
-		FixHashTable(length);
-		StartBlock(type, length < byteCount ? 0 : final);
-		int64_t currentPos = stream.BitsWritten();
-
-		int available = stream.EnsureOutputLength(length);
-		if (available < length)
-			return 0;
-
-		DetermineAndWriteCodes(symbolFreqs, distanceFrequencies);
-		 
-		WriteRecords(source, comprecords);
-
-		stream.AppendToBitStream(codes[256]);
-
-	//	std::cout << "Actual writtn" << (currentPos - stream.BitsWritten() ) ;
-		 
 		return length;
+
 	}
 
 
