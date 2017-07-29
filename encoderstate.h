@@ -40,13 +40,14 @@ struct compressionRecord
 
 struct EncoderState
 {
+
+private:
 	static const int hashBits = 13;
 	static const unsigned hashSize = 1 << hashBits;
 	static const unsigned hashMask = hashSize - 1;
 	static const int maxRecords = 20000;
 
-private:
-	CurrentBlockType type;
+
 	int level;
 	std::vector<compressionRecord> comprecords;
 	std::vector<int> lengths = std::vector<int>(286);
@@ -74,7 +75,6 @@ public:
 public:
 	outputbitstream stream;
 
-
 	void Init()
 	{
 		for (auto& h : hashtable)
@@ -82,19 +82,7 @@ public:
 			h = -100000;
 		}
 
-		if (level == 0)
-		{
-			type = Uncompressed;
-		}
-		else if (level == 1)
-		{
-			type = FixedHuffman;
-		}
-		else
-		{
-			type = UserDefinedHuffman;
-			comprecords.resize(maxRecords);
-		}
+		 
 	}
 
 public:
@@ -164,7 +152,6 @@ public:
 		stream.AppendToBitStream(final, 1); // final
 		stream.AppendToBitStream(t, 2); // fixed huffman table		
 
-		type = t;
 	}
 
 
@@ -265,7 +252,7 @@ public:
 		if (available < length)
 			return 0;
 
-		StartBlock(type, length < byteCount ? 0 : final);
+		StartBlock(UserDefinedHuffman, length < byteCount ? 0 : final);
 
 		// write the table
 		stream.AppendToBitStream(safecast(symbolFreqs.size() - 257), 5);

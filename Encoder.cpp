@@ -97,7 +97,7 @@ void EncoderState::buildLengthLookup()
 }
 
 
-void EncoderState::InitFixedHuffman()
+ void EncoderState::InitFixedHuffman()
 {
 	huffman::generate<code>(huffman::defaultTableLengths(), codes_f);
 
