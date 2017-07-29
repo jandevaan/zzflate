@@ -213,19 +213,24 @@ public:
 			}
 		}
 	}
-	int64_t userBlockBitLength = 0;
+	  
 
 	std::vector<lenghtRecord> ComputeCodes(const std::vector<int>& frequencies, std::vector<int>& codeLengthFreqs, const uint8_t* extraBits, code* outputCodes)
-	{
-		 
+	{ 	 
 		CalcLengths(frequencies, lengths, 15);
-		for (int i = 0; i < frequencies.size(); ++i)
-		{
-			int64_t length = lengths[i] + extraBits[i]; 
-			userBlockBitLength += frequencies[i] * length;
-		}
 		huffman::generate<code>(lengths, outputCodes);
 		return FromLengths(lengths, codeLengthFreqs);
+	}
+
+	int64_t CountBits(const std::vector<int> & frequencies, const uint8_t * extraBits)
+	{
+		int64_t total = 0;
+		for (int i = 0; i < frequencies.size(); ++i)
+		{
+			int64_t length = lengths[i] + extraBits[i];
+			total += frequencies[i] * length;
+		}
+		return total;
 	}
 
 	struct LengthCounter
@@ -244,13 +249,14 @@ public:
 		auto symbolFreqs = std::vector<int>(286, 0);
 		auto distanceFrequencies = std::vector<int>(30, 0);
 		int length = FirstPass(source, byteCount, final, symbolFreqs, distanceFrequencies);
-
-		FixHashTable(length);
-
-		userBlockBitLength = 0;
+		 
+		int userBlockBitLength = 0;
 		std::vector<int> lengthfrequencies(19, 0);
 		auto symbolMetaCodes = ComputeCodes(symbolFreqs, lengthfrequencies, extraLengthBits, codes);
+		userBlockBitLength += CountBits(symbolFreqs, extraLengthBits);
+
 		auto distMetaCodes = ComputeCodes(distanceFrequencies, lengthfrequencies, extraDistanceBits, dcodes);
+		userBlockBitLength += CountBits(distanceFrequencies, extraDistanceBits);
 
 		auto metaCodes = std::vector<code>(19);
 		CalcLengths(lengthfrequencies, lengths, 7);
@@ -453,7 +459,7 @@ public:
 		}
 
 		length = std::max(length, backRefEnd);
-
+		FixHashTable(length);
 
 		comprecords[recordCount++] = { safecast(length - backRefEnd), 0,0 };
 		comprecords.resize(recordCount);
