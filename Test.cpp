@@ -109,7 +109,9 @@ std::vector<uint8_t> bufferCompressed = std::vector<uint8_t>(1500000);
 
 int testroundtripperf(const std::vector<uint8_t>& bufferUncompressed, int compression, int repeatcount = 10)
 { 
-	bufferCompressed.resize(int(bufferUncompressed.size() * 1.01)); 
+	auto testSize = bufferUncompressed.size();
+
+	bufferCompressed.resize(int(testSize * 1.01));
 	
 	uLongf comp_len = 0;
 
@@ -128,10 +130,13 @@ int testroundtripperf(const std::vector<uint8_t>& bufferUncompressed, int compre
 		times[i + 1] = std::chrono::high_resolution_clock::now();
 	}
 
+	std::cout << "Reduced "  << testSize << " to " << ((comp_len) * 100.0 / testSize) << "%\r\n";
+
+
 	for(int i = 0; i < repeatcount; ++i)
 	{
 		auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(times[i + 1] - times[i]);
-		std::cout << microseconds.count()/1000 << " ms\n";
+		std::cout << microseconds.count()/1000.0 << " ms\n";
 	}
 
 	return 0;
@@ -165,7 +170,7 @@ int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compressio
 
 	if (false)
 	{
-		unsigned long compressedLength = testSize + (testSize >> 7);
+		unsigned long compressedLength = safecast(testSize + (testSize >> 7));
 		compressed.resize(compressedLength);
 		ZzFlateEncode(&compressed[0], &compressedLength, &bufferUncompressed[0], bufferUncompressed.size(), compression);
 		compressed.resize(compressedLength);
@@ -277,7 +282,7 @@ TEST(ZzFlate, MovieZlib)
 {
 	for (auto x : directory("c://dev//movie"))
 	{
-		testroundtripperfzlib(readFile(x), 1, x, 1);
+	//	testroundtripperfzlib(readFile(x), 1, x, 1);
 	}
 }
 
@@ -285,7 +290,7 @@ TEST(ZzFlate, Movie)
 {
 	for (auto x : directory("c://dev//movie"))
 	{
-		testroundtripperf(readFile(x), 2, 1);
+	//	testroundtripperf(readFile(x), 2, 1);
 	}
 }
 

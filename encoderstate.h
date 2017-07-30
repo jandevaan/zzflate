@@ -15,14 +15,6 @@ struct lengthRecord
 	char extraBitLength;
 };
 
-
-struct distanceRecord
-{ 
-	unsigned short bits;
-	unsigned short distanceStart;
-};
-
-
 enum CurrentBlockType
 {
 	Uncompressed = 0b00,
@@ -60,7 +52,7 @@ private:
 	static lengthRecord  lengthTable[259]; 
 
 	static const uint8_t order[19];
-	static const distanceRecord distanceTable[32];
+	static const uint16_t distanceTable[32];
 public:
 	static uint8_t distanceLut[32769];
 	static const uint8_t extraLengthBits[286];
@@ -81,8 +73,6 @@ public:
 		{
 			h = -100000;
 		}
-
-		 
 	}
 
 public:
@@ -110,7 +100,7 @@ public:
 	{
 		for (int n = 1; n < std::size(distanceTable); ++n)
 		{
-			if (offset < distanceTable[n].distanceStart)
+			if (offset < distanceTable[n])
 			{
 				return n - 1;
 			}
@@ -141,17 +131,15 @@ public:
 	void WriteDistance(const code* distCodes, int offset)
 	{
 		auto bucketId = distanceLut[offset];
-		auto bucket = distanceTable[bucketId];
-		 
+		auto start = distanceTable[bucketId];
 		stream.AppendToBitStream(distCodes[bucketId]);
-		stream.AppendToBitStream(offset - bucket.distanceStart, bucket.bits);
+		stream.AppendToBitStream(offset - start, extraDistanceBits[bucketId]);
 	}
 
 	void StartBlock(CurrentBlockType t, int final)
 	{
 		stream.AppendToBitStream(final, 1); // final
-		stream.AppendToBitStream(t, 2); // fixed huffman table		
-
+		stream.AppendToBitStream(t, 2); // fixed huffman table	
 	}
 
 
@@ -197,7 +185,7 @@ public:
 	}
 	  
 
-	std::vector<lenghtRecord> ComputeCodes(const std::vector<int>& frequencies, std::vector<int>& codeLengthFreqs, const uint8_t* extraBits, code* outputCodes)
+	std::vector<lenghtRecord> ComputeCodes(const std::vector<int>& frequencies, std::vector<int>& codeLengthFreqs, code* outputCodes)
 	{ 	 
 		CalcLengths(frequencies, lengths, 15);
 		huffman::generate<code>(lengths, outputCodes);
@@ -232,12 +220,12 @@ public:
 		auto distanceFrequencies = std::vector<int>(30, 0);
 		int length = FirstPass(source, byteCount, final, symbolFreqs, distanceFrequencies);
 		 
-		int userBlockBitLength = 0;
+		int64_t userBlockBitLength = 0;
 		std::vector<int> lengthfrequencies(19, 0);
-		auto symbolMetaCodes = ComputeCodes(symbolFreqs, lengthfrequencies, extraLengthBits, codes);
+		auto symbolMetaCodes = ComputeCodes(symbolFreqs, lengthfrequencies, codes);
 		userBlockBitLength += CountBits(symbolFreqs, extraLengthBits);
 
-		auto distMetaCodes = ComputeCodes(distanceFrequencies, lengthfrequencies, extraDistanceBits, dcodes);
+		auto distMetaCodes = ComputeCodes(distanceFrequencies, lengthfrequencies, dcodes);
 		userBlockBitLength += CountBits(distanceFrequencies, extraDistanceBits);
 
 		auto metaCodes = std::vector<code>(19);
@@ -248,7 +236,12 @@ public:
 		WriteLengths(lengthCounter, symbolMetaCodes, metaCodes);
 		WriteLengths(lengthCounter, distMetaCodes, metaCodes);
 
-		int available = stream.EnsureOutputLength((lengthCounter.totalLength + 8) / 8);
+		auto requiredLength = (lengthCounter.totalLength + 8) / 8;
+
+		if (requiredLength >= length)		 
+			return UncompressedFallback(length, source, final);
+		
+		int available = stream.EnsureOutputLength(requiredLength);
 		if (available < length)
 			return 0;
 
@@ -276,6 +269,20 @@ public:
 		stream.AppendToBitStream(codes[256]);
 
 		return length;
+	}
+
+	int UncompressedFallback(int length, const uint8_t * source, bool final)
+	{
+		int bytesWritten = 0;
+		while (bytesWritten < length)
+		{
+			auto count = WriteUncompressedBlock(source + bytesWritten, length - bytesWritten, final);
+			if (count <= 0)
+				return 0;
+
+			bytesWritten += count;
+		}
+		return bytesWritten;
 	}
 
 	void LogDistances(const std::vector<int> & distanceFrequencies)
@@ -355,7 +362,7 @@ public:
 	{
 		auto outputBytesAvailable = stream.EnsureOutputLength(byteCount) - 1;
 		int64_t bitsAvailable = outputBytesAvailable * 8;
-		int bytesToEncode = std::min(int64_t(byteCount), bitsAvailable / 9 - 8);
+		int bytesToEncode = safecast(std::min(int64_t(byteCount), bitsAvailable / 9 - 8));
 		if (bytesToEncode != byteCount)
 		{
 			final = 0;
@@ -458,12 +465,12 @@ public:
 		int worstCaseLength = 6 + length;
 		 
 		int outputbytesAvailable = stream.EnsureOutputLength(worstCaseLength);
+ 
+		if (outputbytesAvailable <= 40)
+			return 0;
 
 		length = std::min(length, outputbytesAvailable - 6);
-		 
-		if (length <= 40)
-			return 0;
-		 
+
 		StartBlock(Uncompressed, final && length == byteCount);
 		stream.PadToByte();
 		stream.WriteU16(safecast(length));
@@ -499,7 +506,6 @@ public:
 	{ 
 		while (start != end)
 		{
-		 	
 			auto bytesRead = WriteDeflateBlock(start, safecast(end - start), true);
 			if (bytesRead <= 0)
 				return false;

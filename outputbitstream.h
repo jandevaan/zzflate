@@ -146,7 +146,7 @@ public:
 	}
 
 
-	void WriteBytes(const uint8_t* source, uint16_t length)
+	void WriteBytes(const uint8_t* source, int length)
 	{ 
 		Flush();
 		memcpy(stream, source, length);
@@ -162,12 +162,12 @@ public:
 	int64_t AvailableBytes() const 	{ return streamEnd - stream; }
 	int64_t BitsWritten() const { return - (_usedBitCount + (  stream - start) * 8);  }
 
-	int64_t EnsureOutputLength(int64_t length)
+	int EnsureOutputLength(int64_t length)
 	{
 		auto available = AvailableBytes();
 
 		if (IsEnough(available, length))
-			 return available;
+			 return safecast(available);
 
 		if (buffers.size() != 0)
 		{
@@ -179,7 +179,7 @@ public:
 		streamEnd = buffer->buffer + buffer->capacity;
 
 		buffers.push_back(std::move(buffer));
-		return AvailableBytes();
+		return safecast(AvailableBytes());
 
 	}
 
