@@ -284,12 +284,7 @@ public:
 		return bytesWritten;
 	}
 
-	void LogDistances(const std::vector<int> & distanceFrequencies)
-	{
-		int distCount = 0;
-		for (auto n : distanceFrequencies) { distCount += n; }
-		std::cout << "\r\n Distances " << distCount << " ";
-	}
+ 
 
 	//*	
 		// This hashfunction is broken: it skips the first byte.
@@ -381,19 +376,18 @@ public:
 		for (int i = 0; i < bytesToEncode; ++i)
 		{
 			auto sourcePtr = source + i;
-			auto newHash = CalcHash(sourcePtr);
-			int offset = hashtable[newHash];
+			auto newHash = CalcHash(sourcePtr);			 
+			auto distance = i - hashtable[newHash];
 			hashtable[newHash] = i;
 
-			auto delta = i - offset;
-			if (unsigned(delta) < 0x8000)
+			if (unsigned(distance) < 0x8000)
 			{
-				auto matchLength = countMatches(sourcePtr, sourcePtr - delta, safecast(bytesToEncode - i));
+				auto matchLength = countMatches(sourcePtr, sourcePtr - distance, safecast(bytesToEncode - i));
 
 				if (matchLength >= 3)
 				{
 					stream.AppendToBitStream(lcodes_f[matchLength].bits, lcodes_f[matchLength].length);
-					WriteDistance(dcodes_f, delta);
+					WriteDistance(dcodes_f, distance);
 
 					i += matchLength - 1;
 					continue;
@@ -421,18 +415,16 @@ public:
 		for (int i = 0; i < length; ++i)
 		{
 			auto sourcePtr = source + i;
-			auto newHash = CalcHash(sourcePtr);
-			int offset = hashtable[newHash];
+			auto newHash = CalcHash(sourcePtr);		 
+			auto distance = i - (hashtable[newHash]);
 			hashtable[newHash] = i;
-			auto distance = i - offset;
 
 			if (distance < 32768)
 			{
 				auto matchLength = countMatches(sourcePtr, sourcePtr- distance, safecast(byteCount - i));
 
 				if (matchLength >= 3)
-				{
-
+				{ 
 		 			int count = countMatchBackward(sourcePtr, sourcePtr - distance, i - backRefEnd);
 					
 					if (count > 0)
