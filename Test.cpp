@@ -170,11 +170,7 @@ int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compressio
 
 	ZzFlateEncode2(&bufferUncompressed[0], bufferUncompressed.size(), compression, [&compressed](auto h)->bool
 	{ 
-		//std::copy(h.buffer, h.buffer + h.bytesStored, compressed.end());
-		for (int i = 0; i < h.bytesStored; ++i)
-		{
-			compressed.push_back(h.buffer[i]);
-		}
+		compressed.insert(compressed.end(), h.buffer, h.buffer + h.bytesStored); 
 		return false;
 	});
 	
