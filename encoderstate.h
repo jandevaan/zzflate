@@ -24,7 +24,7 @@ enum CurrentBlockType
  
 struct compressionRecord
 {
-	int32_t literals;
+	uint32_t literals;
 	uint16_t backoffset;
 	uint16_t length;
 };
@@ -256,8 +256,7 @@ public:
 		{
 			stream.AppendToBitStream(lengths[order[i]], 3);
 		}
-
-
+		 
 		WriteLengths(stream, symbolMetaCodes, metaCodes);
 		WriteLengths(stream, distMetaCodes, metaCodes);
 
@@ -329,6 +328,16 @@ public:
 		return maxLength;
 	}
 
+	static int countMatchBackward(const uint8_t* a, const uint8_t* b, int maxLength)
+	{  
+		for (int matchLength = -1; -matchLength < maxLength; --matchLength)
+		{
+			if (a[matchLength] != b[matchLength])
+				return matchLength;
+		}
+
+		return maxLength - 1;
+	}
 
 	static __forceinline int countMatches(const uint8_t* a, const uint8_t* b, int maxLength)
 	{
@@ -379,7 +388,7 @@ public:
 			auto delta = i - offset;
 			if (unsigned(delta) < 0x8000)
 			{
-				auto matchLength = countMatches(source + i, source + offset, safecast(bytesToEncode - i));
+				auto matchLength = countMatches(sourcePtr, sourcePtr - delta, safecast(bytesToEncode - i));
 
 				if (matchLength >= 3)
 				{
@@ -411,20 +420,41 @@ public:
 
 		for (int i = 0; i < length; ++i)
 		{
-			auto newHash = CalcHash(source + i);
+			auto sourcePtr = source + i;
+			auto newHash = CalcHash(sourcePtr);
 			int offset = hashtable[newHash];
 			hashtable[newHash] = i;
 
 			if (i - 32768 < offset)
 			{
-				auto matchLength = countMatches(source + i, source + offset, safecast(byteCount - i));
+				auto matchLength = countMatches(sourcePtr, source + offset, safecast(byteCount - i));
 
 				if (matchLength >= 3)
 				{
-					symbolFreqs[lengthTable[matchLength].code]++;
-					distanceFrequencies[distanceLut[i - offset]]++;
+		 			int count = countMatchBackward(sourcePtr, source + offset, i - backRefEnd);
+					auto distance = i - offset;
 
-					comprecords[recordCount++] = { (i - backRefEnd), safecast(i - offset), safecast(matchLength) };
+					if (count > 0)
+					{
+						if (count + matchLength > 258)
+						{
+							count = 258 - matchLength;
+						}
+						if (count < i- distance)
+						{
+							for (int n = 0; n < count; ++n)
+							{
+								symbolFreqs[source[i - n - 1]]--;
+							}
+							i -= count;
+							matchLength += count;												 	
+						}									
+					}
+					 
+					symbolFreqs[lengthTable[matchLength].code]++;
+					distanceFrequencies[distanceLut[distance]]++;
+
+					comprecords[recordCount++] = { safecast(i - backRefEnd), safecast(distance), safecast(matchLength) };
 					int nextI = i + matchLength - 1;
 					while (i < nextI)
 					{

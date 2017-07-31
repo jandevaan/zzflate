@@ -168,24 +168,16 @@ int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compressio
 	auto testSize = bufferUncompressed.size();
 	auto  compressed = std::vector<uint8_t>();
 
-	if (false)
-	{
-		unsigned long compressedLength = safecast(testSize + (testSize >> 7));
-		compressed.resize(compressedLength);
-		ZzFlateEncode(&compressed[0], &compressedLength, &bufferUncompressed[0], bufferUncompressed.size(), compression);
-		compressed.resize(compressedLength);
-	}
-	else
+	ZzFlateEncode2(&bufferUncompressed[0], bufferUncompressed.size(), compression, [&compressed](auto h)->bool
 	{ 
-		ZzFlateEncode2(&bufferUncompressed[0], bufferUncompressed.size(), compression, [&compressed](auto h)->bool
+		//std::copy(h.buffer, h.buffer + h.bytesStored, compressed.end());
+		for (int i = 0; i < h.bytesStored; ++i)
 		{
-			for (int i = 0; i < h.bytesStored; ++i)
-			{
-				compressed.push_back(h.buffer[i]);
-			}
-			return false;
-		});
-	}
+			compressed.push_back(h.buffer[i]);
+		}
+		return false;
+	});
+	
 	auto comp_len = compressed.size();
 	std::cout << std::fixed;
 	std::cout << std::setprecision(2);
@@ -216,7 +208,11 @@ int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compressio
 int main(int ac, char* av[])
 {
 	StaticInit();
+	
+	/*auto data = readFile("c:\\dev\\corpus\\grammar.lsp");
 	 
+	testroundtrip(data, 2, "grammar");
+	*/ 
 	testing::InitGoogleTest(&ac, av);
 	return RUN_ALL_TESTS();
 }
@@ -241,7 +237,7 @@ TEST(ZzFlate, UserHuffman)
 TEST(ZzFlate, SmallZerBouffer)
 {
 	std::vector<uint8_t> zeroBuffer;
-	for (int i = 1; i < 400; ++i)
+	for (int i = 1; i <= 512; i = i * 2)
 	{
 		zeroBuffer.resize(i);
 		testroundtrip(zeroBuffer, 2);
