@@ -149,7 +149,7 @@ public:
 		int offset = 0;
 		for (auto r : vector)
 		{
-			for (int n = 0; n < r.literals; ++n)
+			for (unsigned n = 0; n < r.literals; ++n)
 			{
 				auto value = src[offset + n];
 				stream.AppendToBitStream(codes[value]);
@@ -424,16 +424,17 @@ public:
 			auto newHash = CalcHash(sourcePtr);
 			int offset = hashtable[newHash];
 			hashtable[newHash] = i;
+			auto distance = i - offset;
 
-			if (i - 32768 < offset)
+			if (distance < 32768)
 			{
-				auto matchLength = countMatches(sourcePtr, source + offset, safecast(byteCount - i));
+				auto matchLength = countMatches(sourcePtr, sourcePtr- distance, safecast(byteCount - i));
 
 				if (matchLength >= 3)
 				{
-		 			int count = countMatchBackward(sourcePtr, source + offset, i - backRefEnd);
-					auto distance = i - offset;
 
+		 			int count = countMatchBackward(sourcePtr, sourcePtr - distance, i - backRefEnd);
+					
 					if (count > 0)
 					{
 						if (count + matchLength > 258)
@@ -444,7 +445,7 @@ public:
 						{
 							for (int n = 0; n < count; ++n)
 							{
-								symbolFreqs[source[i - n - 1]]--;
+								symbolFreqs[sourcePtr[n - 1]]--;
 							}
 							i -= count;
 							matchLength += count;												 	
@@ -474,7 +475,7 @@ public:
 				}
 			}
 
-			symbolFreqs[source[i]]++;
+			symbolFreqs[*sourcePtr]++;
 		}
 
 		length = std::max(length, backRefEnd);
