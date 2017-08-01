@@ -407,11 +407,10 @@ public:
 	{
 		int length = (byteCount < 256000 && final) ? byteCount : std::min(256000, byteCount - 258);
 		comprecords.resize(maxRecords);
-		symbolFreqs[256]++;
-
+	
 		int backRefEnd = 0;
 		int recordCount = 0;
-
+		int lastLongRefEnd = 0;
 		for (int i = 0; i < length; ++i)
 		{
 			auto sourcePtr = source + i;
@@ -426,27 +425,23 @@ public:
 				if (matchLength >= 3)
 				{ 
 		 			int count = countMatchBackward(sourcePtr, sourcePtr - distance, i - backRefEnd);
-					
+					comprecords[recordCount].length;
 					if (count > 0)
 					{
 						if (count + matchLength > 258)
 						{
 							count = 258 - matchLength;
 						}
+
 						if (count < i- distance)
 						{
-							for (int n = 0; n < count; ++n)
-							{
-								symbolFreqs[sourcePtr[n - 1]]--;
-							}
+							 
 							i -= count;
-							matchLength += count;												 	
-						}									
+							matchLength += count;									 	
+						}
+						
 					}
-					 
-					symbolFreqs[lengthTable[matchLength].code]++;
-					distanceFrequencies[distanceLut[distance]]++;
-
+		 
 					comprecords[recordCount++] = { safecast(i - backRefEnd), safecast(distance), safecast(matchLength) };
 					int nextI = i + matchLength - 1;
 					while (i < nextI)
@@ -456,7 +451,10 @@ public:
 					}
 
 					backRefEnd = nextI + 1;
-
+					if (matchLength > 4)
+					{
+						lastLongRefEnd = backRefEnd;
+					}
 					if (recordCount == maxRecords - 1)
 					{
 						length = i;
@@ -465,9 +463,7 @@ public:
 
 					continue;
 				}
-			}
-
-			symbolFreqs[*sourcePtr]++;
+			} 
 		}
 
 		length = std::max(length, backRefEnd);
@@ -475,6 +471,20 @@ public:
 
 		comprecords[recordCount++] = { safecast(length - backRefEnd), 0,0 };
 		comprecords.resize(recordCount);
+		int index = 0;
+		for (auto r : comprecords)
+		{
+			for (int i = 0; i < r.literals; i++)
+			{
+				symbolFreqs[source[index + i]]++;			 
+			}
+			
+			symbolFreqs[lengthTable[r.length].code]++;
+			distanceFrequencies[distanceLut[r.backoffset]]++;
+			index += r.literals + r.length;
+		}
+		symbolFreqs[256]++;
+
 		return length;
 
 	}
