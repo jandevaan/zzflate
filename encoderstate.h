@@ -425,7 +425,7 @@ public:
 				if (matchLength >= 3)
 				{ 
 		 			int count = countMatchBackward(sourcePtr, sourcePtr - distance, i - backRefEnd);
-					comprecords[recordCount].length;
+					 
 					if (count > 0)
 					{
 						if (count + matchLength > 258)
@@ -435,7 +435,6 @@ public:
 
 						if (count < i- distance)
 						{
-							 
 							i -= count;
 							matchLength += count;									 	
 						}
