@@ -380,7 +380,7 @@ public:
 			auto distance = i - hashtable[newHash];
 			hashtable[newHash] = i;
 
-			if (unsigned(distance) < 0x8000)
+			if (unsigned(distance) <= 0x8000)
 			{
 				auto matchLength = countMatches(sourcePtr, sourcePtr - distance, safecast(bytesToEncode - i));
 
@@ -418,51 +418,50 @@ public:
 			auto distance = i - (hashtable[newHash]);
 			hashtable[newHash] = i;
 
-			if (distance < 32768)
-			{
-				auto matchLength = countMatches(sourcePtr, sourcePtr- distance, safecast(byteCount - i));
+			if (distance > 32768)
+				continue;
 
-				if (matchLength >= 3)
-				{ 
-		 			int count = countMatchBackward(sourcePtr, sourcePtr - distance, i - backRefEnd);
+		 	auto matchLength = countMatches(sourcePtr, sourcePtr- distance, safecast(byteCount - i));
+
+			if (matchLength < 3)
+				continue;
+			 
+		 	int count = countMatchBackward(sourcePtr, sourcePtr - distance, i - backRefEnd);
 					 
-					if (count > 0)
-					{
-						if (count + matchLength > 258)
-						{
-							count = 258 - matchLength;
-						}
-
-						if (count < i- distance)
-						{
-							i -= count;
-							matchLength += count;									 	
-						}
-						
-					}
-		 
-					comprecords[recordCount++] = { safecast(i - backRefEnd), safecast(distance), safecast(matchLength) };
-					int nextI = i + matchLength - 1;
-					while (i < nextI)
-					{
-						hashtable[CalcHash(source + i)] = i;
-						i++;
-					}
-
-					backRefEnd = nextI + 1;
-					if (matchLength > 4)
-					{
-						lastLongRefEnd = backRefEnd;
-					}
-					if (recordCount == maxRecords - 1)
-					{
-						length = i;
-						break;
-					}
-
-					continue;
+			if (count > 0)
+			{
+				if (count + matchLength > 258)
+				{
+					count = 258 - matchLength;
 				}
-			} 
+
+				if (count < i- distance)
+				{
+					i -= count;
+					matchLength += count;									 	
+				}
+						
+			}
+		 
+			comprecords[recordCount++] = { safecast(i - backRefEnd), safecast(distance), safecast(matchLength) };
+			int nextI = i + matchLength - 1;
+			while (i < nextI)
+			{
+				hashtable[CalcHash(source + i)] = i;
+				i++;
+			}
+
+			backRefEnd = nextI + 1;
+			if (matchLength > 4)
+			{
+				lastLongRefEnd = backRefEnd;
+			}
+			if (recordCount == maxRecords - 1)
+			{
+				length = i;
+				break;
+			}
+				   
 		}
 
 		length = std::max(length, backRefEnd);
