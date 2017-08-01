@@ -402,7 +402,7 @@ public:
 		stream.AppendToBitStream(codes_f[256]);
 		return bytesToEncode;
 	}
-
+	 
 	int FirstPass(const uint8_t * source, int byteCount, bool final, std::vector<int> &symbolFreqs, std::vector<int> &distanceFrequencies)
 	{
 		int length = (byteCount < 256000 && final) ? byteCount : std::min(256000, byteCount - 258);
@@ -426,17 +426,33 @@ public:
 			if (matchLength < 3)
 				continue;
 			 
-		 	int count = countMatchBackward(sourcePtr, sourcePtr - distance, i - backRefEnd);
+			int count =  countMatchBackward(sourcePtr, sourcePtr - distance, i - lastLongRefEnd);
 					 
-			if (count > 0)
+			if (count > 0 && recordCount > 0)
 			{
 				if (count + matchLength > 258)
 				{
 					count = 258 - matchLength;
 				}
 
-				if (count < i- distance)
+			
+				while ( count >= comprecords[recordCount - 1].length + i - backRefEnd)
 				{
+					int literals = i - backRefEnd;
+
+					int len = comprecords[recordCount - 1].length;
+					
+					i -= literals + len;
+					matchLength += literals + len;
+					count -= literals + len;
+					backRefEnd -= comprecords[recordCount - 1].literals + len;
+					recordCount--;
+				}
+				 
+				if (count < i- distance )
+				{
+					count = std::min(count, i - backRefEnd);
+
 					i -= count;
 					matchLength += count;									 	
 				}
