@@ -204,11 +204,7 @@ int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compressio
 int main(int ac, char* av[])
 {
 	StaticInit();
-	
-	/*auto data = readFile("c:\\dev\\corpus\\grammar.lsp");
 	 
-	testroundtrip(data, 2, "grammar");
-	*/ 
 	testing::InitGoogleTest(&ac, av);
 	return RUN_ALL_TESTS();
 }
@@ -250,15 +246,15 @@ TEST(ZzFlate, CanterburyZzflate)
 	}
 	
 }
-
-TEST(ZzFlate, CanterburyNoCompression)
-{
-	for (auto x : directory("c://dev//corpus"))
-	{
-		testroundtrip(readFile(x), 0, x);
-	}
-
-}
+//
+//TEST(ZzFlate, CanterburyNoCompression)
+//{
+//	for (auto x : directory("c://dev//corpus"))
+//	{
+//		testroundtrip(readFile(x), 0, x);
+//	}
+//
+//}
 
 
 

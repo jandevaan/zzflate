@@ -418,36 +418,29 @@ public:
 			auto distance = i - (hashtable[newHash]);
 			hashtable[newHash] = i;
 
-			if (distance >= 32768)
+			if (distance > 32768)
 				continue;
 
-			auto matchLength = 0;
+			auto matchLength = countMatches(sourcePtr + 1, sourcePtr + 1 - distance, safecast(byteCount - i - 1));
 
 			if (sourcePtr[0] == sourcePtr[-distance])
 			{
-				matchLength = countMatches(sourcePtr, sourcePtr - distance, safecast(byteCount - i));
+				if (matchLength < 258)
+				{
+					matchLength++;
+				}
 
 				if (matchLength < 3)
 					continue;
 			}
 			else						
-			{
-				i++;
-				sourcePtr++;
-				matchLength = countMatches(sourcePtr , sourcePtr - distance, safecast(byteCount - i));
-				 
+			{ 
 				if (matchLength < 4)
-				{
-					--i;
-					continue;
-				}
-				else
-				{
-					i = i;
-				}
-				 
-				//continue;
- 			}
+			  		continue;
+
+				sourcePtr++;
+				i++;
+			}
 
 			comprecords[recordCount++] = { safecast(i - backRefEnd), safecast(distance), safecast(matchLength) };
 			int nextI = i + matchLength - 1;
