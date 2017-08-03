@@ -409,8 +409,7 @@ public:
 		comprecords.resize(maxRecords);
 	
 		int backRefEnd = 0;
-		int recordCount = 0;
-		int lastLongRefEnd = 0;
+		int recordCount = 0; 
 		for (int i = 0; i < length; ++i)
 		{
 			auto sourcePtr = source + i;
@@ -425,42 +424,36 @@ public:
 
 			if (sourcePtr[0] == sourcePtr[-distance])
 			{
+				if (matchLength < 3)
+					continue;
+
 				if (matchLength < 258)
 				{
 					matchLength++;
 				}
 
-				if (matchLength < 3)
-					continue;
+				
+				AddHashEntries(source, i + 1, matchLength - 1);
 			}
 			else						
 			{ 
 				if (matchLength < 4)
 			  		continue;
-
-				sourcePtr++;
+			 
 				i++;
+				AddHashEntries(source, i , matchLength  );
 			}
 
-			comprecords[recordCount++] = { safecast(i - backRefEnd), safecast(distance), safecast(matchLength) };
-			int nextI = i + matchLength - 1;
-			while (i < nextI)
-			{
-				hashtable[CalcHash(source + i + 1)] = i;
-				i++;
-			}
-
-			backRefEnd = nextI + 1;
-			if (matchLength > 4)
-			{
-				lastLongRefEnd = backRefEnd;
-			}
+			comprecords[recordCount++] = { safecast(i - backRefEnd), safecast(distance), safecast(matchLength) };			  
+		
+			i += matchLength - 1;
+			backRefEnd = i + 1;
+			 
 			if (recordCount == maxRecords - 1)
 			{
 				length = i;
 				break;
-			}
-				   
+			} 
 		}
 
 		length = std::max(length, backRefEnd);
@@ -484,6 +477,15 @@ public:
 
 		return length;
 
+	}
+
+	void AddHashEntries(const uint8_t * source, int i, int extra)
+	{
+		for (int n = i; n < i + extra; ++n)
+		{
+			hashtable[CalcHash(source + n + 1)] = n;
+
+		}
 	}
 
 
