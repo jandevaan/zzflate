@@ -291,7 +291,7 @@ public:
 		// Any attempt to fix it ruins compression ratios, strangely enough. 
 	static unsigned int CalcHash(const uint8_t * ptr)
 	{
-		const uint32_t* ptr32 = reinterpret_cast<const uint32_t*>(ptr);
+		const uint32_t* ptr32 = reinterpret_cast<const uint32_t*>(ptr - 1);
 		auto val = (*ptr32 >> 8) * 0x00d68664u;
 
 		return val >> (32 - hashBits);
@@ -376,7 +376,7 @@ public:
 		for (int i = 0; i < bytesToEncode; ++i)
 		{
 			auto sourcePtr = source + i;
-			auto newHash = CalcHash(sourcePtr);			 
+			auto newHash = CalcHash(sourcePtr + 1);			 
 			auto distance = i - hashtable[newHash];
 			hashtable[newHash] = i;
 
@@ -414,56 +414,46 @@ public:
 		for (int i = 0; i < length; ++i)
 		{
 			auto sourcePtr = source + i;
-			auto newHash = CalcHash(sourcePtr);		 
+			auto newHash = CalcHash(sourcePtr + 1);		 
 			auto distance = i - (hashtable[newHash]);
 			hashtable[newHash] = i;
 
-			if (distance > 32768)
+			if (distance >= 32768)
 				continue;
 
-		 	auto matchLength = countMatches(sourcePtr, sourcePtr- distance, safecast(byteCount - i));
+			auto matchLength = 0;
 
-			if (matchLength < 3)
-				continue;
-			 
-			int count =  countMatchBackward(sourcePtr, sourcePtr - distance, i - lastLongRefEnd);
-					 
-			if (count > 0 && recordCount > 0)
+			if (sourcePtr[0] == sourcePtr[-distance])
 			{
-				if (count + matchLength > 258)
+				matchLength = countMatches(sourcePtr, sourcePtr - distance, safecast(byteCount - i));
+
+				if (matchLength < 3)
+					continue;
+			}
+			else						
+			{
+				i++;
+				sourcePtr++;
+				matchLength = countMatches(sourcePtr , sourcePtr - distance, safecast(byteCount - i));
+				 
+				if (matchLength < 4)
 				{
-					count = 258 - matchLength;
+					--i;
+					continue;
 				}
-
-			
-				while ( count >= comprecords[recordCount - 1].length + i - backRefEnd)
+				else
 				{
-					int literals = i - backRefEnd;
-
-					int len = comprecords[recordCount - 1].length;
-					
-					i -= literals + len;
-					matchLength += literals + len;
-					count -= literals + len;
-					backRefEnd -= comprecords[recordCount - 1].literals + len;
-					recordCount--;
+					i = i;
 				}
 				 
-				if (count < i- distance )
-				{
-					count = std::min(count, i - backRefEnd);
+				//continue;
+ 			}
 
-					i -= count;
-					matchLength += count;									 	
-				}
-						
-			}
-		 
 			comprecords[recordCount++] = { safecast(i - backRefEnd), safecast(distance), safecast(matchLength) };
 			int nextI = i + matchLength - 1;
 			while (i < nextI)
 			{
-				hashtable[CalcHash(source + i)] = i;
+				hashtable[CalcHash(source + i + 1)] = i;
 				i++;
 			}
 

@@ -272,17 +272,17 @@ TEST(ZzFlate, CanterburyZlib)
    
 TEST(ZzFlate, MovieZlib)
 {
-	for (auto x : directory("c://dev//movie"))
+	for (auto x : directory("c://dev//large"))
 	{
-	//	testroundtripperfzlib(readFile(x), 1, x, 1);
+		testroundtripperfzlib(readFile(x), 1, x, 1);
 	}
 }
 
 TEST(ZzFlate, Movie)
 {
-	for (auto x : directory("c://dev//movie"))
+	for (auto x : directory("c://dev//large"))
 	{
-	//	testroundtripperf(readFile(x), 2, 1);
+		testroundtripperf(readFile(x), 1, 1);
 	}
 }
 

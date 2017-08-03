@@ -61,7 +61,7 @@ const uint16_t EncoderState::distanceTable[32]{
 	16385,
 	24577,
 	32768,
-	32768,
+	32769,
 };
 
 uint8_t EncoderState::distanceLut[32769];

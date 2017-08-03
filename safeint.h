@@ -10,8 +10,8 @@ struct safeint
 	template <class TDest> __forceinline operator TDest()
 	{
 		TDest result = TDest(value);
-#ifdef DEBUG
-		assert(result == value);// && sign(value) == sign(result));
+#ifdef _DEBUG
+		assert(TValue(result) == value && (value > 0) ==  (result > 0));
 #endif
 		return result;
 	}
