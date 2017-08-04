@@ -421,8 +421,9 @@ public:
 				continue;
 
 			auto matchLength = countMatches(sourcePtr + 1, sourcePtr + 1 - distance, safecast(byteCount - i - 1));
+			int matchStart = i + 1;
 
-			if (sourcePtr[0] == sourcePtr[-distance])
+			if (source[matchStart -1] == source[matchStart - 1 -distance])
 			{
 				if (matchLength < 3)
 					continue;
@@ -432,28 +433,28 @@ public:
 					matchLength++;
 				}
 
-				
-				AddHashEntries(source, i + 1, matchLength - 1);
+				matchStart = i;
+				 
 			}
 			else						
 			{ 
 				if (matchLength < 4)
-			  		continue;
-			 
-				i++;
-				AddHashEntries(source, i , matchLength  );
+			  		continue; 
+				
 			}
+			AddHashEntries(source, matchStart, matchLength);
 
-			comprecords[recordCount++] = { safecast(i - backRefEnd), safecast(distance), safecast(matchLength) };			  
+			comprecords[recordCount++] = { safecast(matchStart - backRefEnd), safecast(distance), safecast(matchLength) };
 		
-			i += matchLength - 1;
-			backRefEnd = i + 1;
-			 
+			backRefEnd = matchStart + matchLength;
+		
 			if (recordCount == maxRecords - 1)
 			{
-				length = i;
+				length = backRefEnd - 1;
 				break;
 			} 
+
+			i = matchStart + matchLength - 1;
 		}
 
 		length = std::max(length, backRefEnd);
