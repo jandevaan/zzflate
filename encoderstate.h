@@ -325,13 +325,13 @@ public:
 
 	static int countMatchBackward(const uint8_t* a, const uint8_t* b, int maxLength)
 	{  
-		for (int matchLength = -1; -matchLength < maxLength; --matchLength)
+		for (int matchLength = 0; matchLength < maxLength; ++matchLength)
 		{
-			if (a[matchLength] != b[matchLength])
+			if (a[-1-matchLength] != b[-1 - matchLength])
 				return matchLength;
 		}
 
-		return maxLength - 1;
+		return maxLength;
 	}
 
 	static __forceinline int countMatches(const uint8_t* a, const uint8_t* b, int maxLength)
@@ -423,17 +423,22 @@ public:
 			auto matchLength = countMatches(sourcePtr + 1, sourcePtr + 1 - distance, safecast(byteCount - i - 1));
 			int matchStart = i + 1;
 
-			if (source[matchStart -1] == source[matchStart - 1 -distance])
+		 
+			int count = countMatchBackward(source + matchStart, source + matchStart - distance, matchStart - backRefEnd);
+			if (distance == 1)
+			{
+				count = std::min(count, 1);
+			}
+
+			if (count > 0)
 			{
 				if (matchLength < 3)
 					continue;
+				 
 
-				if (matchLength < 258)
-				{
-					matchLength++;
-				}
+				matchLength = std::min(matchLength + count, 258);
 
-				matchStart = i;
+				matchStart = i + 1 - count;
 				 
 			}
 			else						
@@ -450,7 +455,7 @@ public:
 		
 			if (recordCount == maxRecords - 1)
 			{
-				length = backRefEnd - 1;
+				length = backRefEnd;
 				break;
 			} 
 
@@ -469,11 +474,24 @@ public:
 			{
 				symbolFreqs[source[index + i]]++;			 
 			}
-			
+			index += r.literals;
+
+			if (r.length == 0)
+				continue;
+
+			assert(1 <= r.backoffset && r.backoffset <= 32768);
+			assert(3 <= r.length && r.length <= 258);
+			 
+			for (int i = index; i < index + r.length; i++)
+			{
+				assert(source[i] == source[i - r.backoffset]);
+			}
 			symbolFreqs[lengthTable[r.length].code]++;
 			distanceFrequencies[distanceLut[r.backoffset]]++;
-			index += r.literals + r.length;
+			index += r.length;
 		}
+
+		assert(index == length);
 		symbolFreqs[256]++;
 
 		return length;
