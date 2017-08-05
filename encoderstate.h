@@ -410,35 +410,32 @@ public:
 	
 		int backRefEnd = 0;
 		int recordCount = 0; 
-
-		//hashtable[CalcHash(source + 1)] = 0;
-
-
-		for (int i = 0; i < length; ++i)
-		{
-			auto newHash = CalcHash(source + i + 1);
-			auto distance = i - (hashtable[newHash]);
-			hashtable[newHash] = i;
+		  
+		for (int j = 1; j < length; ++j)
+		{ 
+			auto newHash = CalcHash(source + j);
+			auto distance = j - 1 - (hashtable[newHash]);
+			hashtable[newHash] = j - 1;
 
 			if (distance > 32768)
 				continue;
 
-			int matchStart = i + 1;
+			int matchStart = j;
 
 			auto matchLength = countMatches(source + matchStart, source + matchStart - distance, safecast(byteCount - matchStart));
-
-			int count = countMatchBackward(source + matchStart, source + matchStart - distance, matchStart - backRefEnd);
+			  
+			int lengthBackward = countMatchBackward(source + matchStart, source + matchStart - distance, matchStart - backRefEnd);
 			 
-			if (count > 0)
+			if (lengthBackward > 0)
 			{ 
 				if (distance == 1)
 				{
-					count = 1;
+					lengthBackward = 1;
 				}
 
-				matchLength = std::min(matchLength + count, 258);
+				matchLength = std::min(matchLength + lengthBackward, 258);
 
-				matchStart = i + 1 - count;
+				matchStart -= lengthBackward;
 				 
 			} 
 
@@ -457,7 +454,7 @@ public:
 				break;
 			} 
 
-			i = matchStart + matchLength - 1;
+			j = matchStart + matchLength;
 		}
 
 		length = std::max(length, backRefEnd);
