@@ -185,11 +185,11 @@ int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compressio
 
 	auto error = uncompress(&decompressed[0], &unc_len, &compressed[0], comp_len);
 
-	/*EXPECT_EQ(error, Z_OK);
+	EXPECT_EQ(error, Z_OK);
 
 	if (error != Z_OK)
 		return -1;
-*/
+ 
 	for (auto i = 0; i < testSize; ++i)
 	{ 
 		EXPECT_EQ(bufferUncompressed[i], decompressed[i]) << "pos " << i;
@@ -270,7 +270,26 @@ TEST(ZzFlate, CanterburyZlib)
 		testroundtripperfzlib(readFile(x), 1, x, 1);
 	}
 }
-   
+
+
+TEST(ZzFlate, CanterburyZlib3)
+{
+	for (auto x : directory("c://dev//corpus"))
+	{
+		testroundtripperfzlib(readFile(x), 3, x, 1);
+	}
+}
+
+TEST(ZzFlate, CanterburyZlib6)
+{
+	for (auto x : directory("c://dev//corpus"))
+	{
+		testroundtripperfzlib(readFile(x), 6, x, 1);
+	}
+}
+
+ 
+
 TEST(ZzFlate, MovieZlib)
 {
 	for (auto x : directory("c://dev//large"))

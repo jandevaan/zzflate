@@ -40,29 +40,37 @@ private:
 	static const int maxRecords = 20000;
 
 
+
+	// general
+
 	int level;
-	std::vector<compressionRecord> comprecords;
-	std::vector<int> lengths = std::vector<int>(286);
+	int hashtable[hashSize];
+
+	static const uint8_t extraLengthBits[286];
+	static const uint8_t extraDistanceBits[32];
+	static const uint8_t order[19];
+	static const uint16_t distanceTable[32];
+	static uint8_t distanceLut[32769];
+	static lengthRecord  lengthTable[259];
 
 	// for fixed huffman encoding
 	static code codes_f[286]; // literals
 	static code lcodes_f[259]; // table to send lengths (symbol + extra bits for all 258)
 	static code dcodes_f[32];
 
-	static lengthRecord  lengthTable[259]; 
-
-	static const uint8_t order[19];
-	static const uint16_t distanceTable[32];
-public:
-	static uint8_t distanceLut[32769];
-	static const uint8_t extraLengthBits[286];
-	static const uint8_t extraDistanceBits[32];
-
-
+	 
+	// user huffman 
+	std::vector<compressionRecord> comprecords;
+	std::vector<int> lengths = std::vector<int>(286); // temp
 	code codes[286]; // literals
 	code lcodes[259]; // table to send lengths (symbol + extra bits for all 258)
 	code dcodes[32];
-	int hashtable[hashSize];
+	
+	
+
+public:
+	
+
 
 public:
 	outputbitstream stream;
@@ -95,6 +103,7 @@ public:
 	static void buildLengthLookup();
 	static void InitFixedHuffman();
 
+	static int ReadLut(int offset) { return distanceLut[offset]; }
 
 	static int FindDistance(int offset)
 	{
@@ -285,28 +294,15 @@ public:
 	}
 
  
-
-	//*	
-		// This hashfunction is broken: it skips the first byte.
-		// Any attempt to fix it ruins compression ratios, strangely enough. 
+	
 	static unsigned int CalcHash(const uint8_t * ptr)
 	{
-		const uint32_t* ptr32 = reinterpret_cast<const uint32_t*>(ptr - 1);
-		auto val = (*ptr32 >> 8) * 0x00d68664u;
+		const uint32_t* ptr32 = reinterpret_cast<const uint32_t*>(ptr);
+		auto val = ((*ptr32<< 8 ) >> 8) * 0x00d68664u;
 
 		return val >> (32 - hashBits);
 	}
-
-	/*/
-
-		 static unsigned int CalcHash(const uint8_t * ptr)
-		 {
-			 const uint32_t* ptr32 = reinterpret_cast<const uint32_t*>(ptr);
-			 auto n = (*ptr32);
-			 return n % 4093;
-		 }
-
-	//*/
+	 
 	static int remain(const uint8_t* a, const uint8_t* b, int matchLength, int maxLength)
 	{
 		if (maxLength > 258)

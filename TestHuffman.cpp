@@ -14,10 +14,10 @@ TEST(ZzFlate, TestDistanceSearch)
 
 	int failCount = 0;
 
-	for (int distance = 0; distance < 32768; ++distance)
+	for (int distance = 0; distance <= 32768; ++distance)
 	{
-		int a = state.FindDistance(distance);
-		int b = EncoderState::distanceLut[distance];
+		int a = EncoderState::FindDistance(distance);
+		int b = EncoderState::ReadLut(distance);
 
 		if (a != b)
 		{
