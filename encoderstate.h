@@ -410,43 +410,41 @@ public:
 	
 		int backRefEnd = 0;
 		int recordCount = 0; 
+
+		//hashtable[CalcHash(source + 1)] = 0;
+
+
 		for (int i = 0; i < length; ++i)
 		{
-			auto sourcePtr = source + i;
-			auto newHash = CalcHash(sourcePtr + 1);		 
+			auto newHash = CalcHash(source + i + 1);
 			auto distance = i - (hashtable[newHash]);
 			hashtable[newHash] = i;
 
 			if (distance > 32768)
 				continue;
 
-			auto matchLength = countMatches(sourcePtr + 1, sourcePtr + 1 - distance, safecast(byteCount - i - 1));
 			int matchStart = i + 1;
 
-		 
-			int count = countMatchBackward(source + matchStart, source + matchStart - distance, matchStart - backRefEnd);
-			if (distance == 1)
-			{
-				count = std::min(count, 1);
-			}
+			auto matchLength = countMatches(source + matchStart, source + matchStart - distance, safecast(byteCount - matchStart));
 
+			int count = countMatchBackward(source + matchStart, source + matchStart - distance, matchStart - backRefEnd);
+			 
 			if (count > 0)
-			{
-				if (matchLength < 3)
-					continue;
-				 
+			{ 
+				if (distance == 1)
+				{
+					count = 1;
+				}
 
 				matchLength = std::min(matchLength + count, 258);
 
 				matchStart = i + 1 - count;
 				 
-			}
-			else						
-			{ 
-				if (matchLength < 4)
-			  		continue; 
-				
-			}
+			} 
+
+			if (matchLength < 4)
+				continue;
+
 			AddHashEntries(source, matchStart, matchLength);
 
 			comprecords[recordCount++] = { safecast(matchStart - backRefEnd), safecast(distance), safecast(matchLength) };
