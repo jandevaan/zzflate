@@ -41,11 +41,6 @@ private:
 
 
 
-	// general
-
-	int level;
-	int hashtable[hashSize];
-
 	static const uint8_t extraLengthBits[286];
 	static const uint8_t extraDistanceBits[32];
 	static const uint8_t order[19];
@@ -58,7 +53,8 @@ private:
 	static code lcodes_f[259]; // table to send lengths (symbol + extra bits for all 258)
 	static code dcodes_f[32];
 
-	 
+
+	
 	// user huffman 
 	std::vector<compressionRecord> comprecords;
 	std::vector<int> lengths = std::vector<int>(286); // temp
@@ -67,14 +63,14 @@ private:
 	code dcodes[32];
 	
 	
-
-public:
-	
-
+	// general
+	int level;
+	int hashtable[hashSize];
 
 public:
 	outputbitstream stream;
 
+public:
 	void Init()
 	{
 		for (auto& h : hashtable)
@@ -372,7 +368,7 @@ public:
 		for (int i = 0; i < bytesToEncode; ++i)
 		{
 			auto sourcePtr = source + i;
-			auto newHash = CalcHash(sourcePtr + 1);			 
+			auto newHash = CalcHash(sourcePtr + 1);
 			auto distance = i - hashtable[newHash];
 			hashtable[newHash] = i;
 
@@ -382,16 +378,15 @@ public:
 
 				if (matchLength >= 3)
 				{
-					stream.AppendToBitStream(lcodes_f[matchLength].bits, lcodes_f[matchLength].length);
+					stream.AppendToBitStream(lcodes_f[matchLength]);
 					WriteDistance(dcodes_f, distance);
 
 					i += matchLength - 1;
 					continue;
 				}
 			}
-
-			auto code = codes_f[*sourcePtr];
-			stream.AppendToBitStream(code.bits, code.length);
+			 
+			stream.AppendToBitStream(codes_f[*sourcePtr]);
 		}
 
  	 	FixHashTable(bytesToEncode);		 
