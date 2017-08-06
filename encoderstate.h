@@ -51,7 +51,7 @@ private:
 	// for fixed huffman encoding
 	static code codes_f[286]; // literals
 	static code lcodes_f[259]; // table to send lengths (symbol + extra bits for all 258)
-	static code dcodes_f[32];
+	static code dcodes_f[30];
 
 
 	
@@ -60,7 +60,7 @@ private:
 	std::vector<int> lengths = std::vector<int>(286); // temp
 	code codes[286]; // literals
 	code lcodes[259]; // table to send lengths (symbol + extra bits for all 258)
-	code dcodes[32];
+	code dcodes[30];
 	
 	
 	// general
