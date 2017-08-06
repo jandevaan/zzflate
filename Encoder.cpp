@@ -111,7 +111,7 @@ void EncoderState::buildLengthLookup()
 {
 	huffman::generate<code>(huffman::defaultTableLengths(), codes_f);
 
-	for (int i = 0; i < 32; ++i)
+	for (int i = 0; i < 30; ++i)
 	{
 		dcodes_f[i] = code(5, huffman::reverse(i, 5));
 	}
