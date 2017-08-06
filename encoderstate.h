@@ -42,9 +42,9 @@ private:
 
 
 	static const uint8_t extraLengthBits[286];
-	static const uint8_t extraDistanceBits[32];
+	static const uint8_t extraDistanceBits[30];
 	static const uint8_t order[19];
-	static const uint16_t distanceTable[32];
+	static const uint16_t distanceTable[30];
 	static uint8_t distanceLut[32769];
 	static lengthRecord  lengthTable[259];
 
@@ -98,20 +98,10 @@ public:
 
 	static void buildLengthLookup();
 	static void InitFixedHuffman();
+	static int FindDistance(int offset);
 
 	static int ReadLut(int offset) { return distanceLut[offset]; }
 
-	static int FindDistance(int offset)
-	{
-		for (int n = 1; n < std::size(distanceTable); ++n)
-		{
-			if (offset < distanceTable[n])
-			{
-				return n - 1;
-			}
-		}
-		return -1;
-	}
 
 
 	static code Merge(code first, code second)
