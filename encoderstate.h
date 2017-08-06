@@ -281,7 +281,7 @@ public:
 
  
 	
-	static unsigned int CalcHash(const uint8_t * ptr)
+	__forceinline static unsigned int CalcHash(const uint8_t * ptr)
 	{
 		const uint32_t* ptr32 = reinterpret_cast<const uint32_t*>(ptr);
 		auto val = ((*ptr32<< 8 ) >> 8) * 0x00d68664u;
@@ -354,7 +354,7 @@ public:
 			final = 0;
 		}
 		StartBlock(FixedHuffman, final);
-			 
+		int writtenUpTo = 0;
 		for (int i = 0; i < bytesToEncode; ++i)
 		{
 			auto sourcePtr = source + i;
@@ -364,32 +364,39 @@ public:
 
 			if (unsigned(distance) <= 0x8000)
 			{
+				
 				auto matchLength = countMatches(sourcePtr  , sourcePtr   - distance, safecast(bytesToEncode - i));
-
-				if (matchLength >= 3)
-				{
-					stream.AppendToBitStream(lcodes_f[matchLength]);
-					WriteDistance(dcodes_f, distance);
-
-					i += matchLength - 1;
+				 
+				if (matchLength < 3)
 					continue;
-				}
-
-				matchLength = countMatches(sourcePtr + 1, sourcePtr + 1 - distance, safecast(bytesToEncode - i - 1));
-
-				if (matchLength >= 4 )
+				
+				if (writtenUpTo < i)
 				{
-					stream.AppendToBitStream(codes_f[*sourcePtr]);
+			 		while (writtenUpTo < i && matchLength < 258 && source[i - 1] == source[i - distance - 1])
+					{
+						matchLength++;
+						i--;
+					}
 					 
-					stream.AppendToBitStream(lcodes_f[matchLength]);
-					WriteDistance(dcodes_f, distance);
-
-					i += matchLength ;
-					continue;
+					while (writtenUpTo < i)
+					{
+						stream.AppendToBitStream(codes_f[source[writtenUpTo++]]);
+					}
 				}
-			}
+
+				 
+				stream.AppendToBitStream(lcodes_f[matchLength]);
+				WriteDistance(dcodes_f, distance);
+  
+				i += matchLength - 1;
+				writtenUpTo = i + 1;
+			 }
 			 
-			stream.AppendToBitStream(codes_f[*sourcePtr]);
+		}
+		while (writtenUpTo < bytesToEncode)
+		{
+			stream.AppendToBitStream(codes_f[source[writtenUpTo++]]);
+
 		}
 
  	 	FixHashTable(bytesToEncode);		 
@@ -459,7 +466,7 @@ public:
 		int index = 0;
 		for (auto r : comprecords)
 		{
-			for (int i = 0; i < r.literals; i++)
+			for (uint32_t i = 0; i < r.literals; i++)
 			{
 				symbolFreqs[source[index + i]]++;			 
 			}
@@ -487,7 +494,7 @@ public:
 
 	}
 
-	void AddHashEntries(const uint8_t * source, int i, int extra)
+	__forceinline void AddHashEntries(const uint8_t * source, int i, int extra)
 	{
 		for (int n = i; n < i + extra; ++n)
 		{
