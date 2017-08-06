@@ -221,7 +221,7 @@ namespace
 
 
 TEST(ZzFlate, FixedHuffman)
-{ 
+{  
 	testroundtrip(bufferUncompressed, 1);
 }
 

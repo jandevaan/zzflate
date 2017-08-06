@@ -374,7 +374,7 @@ public:
 
 			if (unsigned(distance) <= 0x8000)
 			{
-				auto matchLength = countMatches(sourcePtr, sourcePtr - distance, safecast(bytesToEncode - i));
+				auto matchLength = countMatches(sourcePtr  , sourcePtr   - distance, safecast(bytesToEncode - i));
 
 				if (matchLength >= 3)
 				{
@@ -382,6 +382,19 @@ public:
 					WriteDistance(dcodes_f, distance);
 
 					i += matchLength - 1;
+					continue;
+				}
+
+				matchLength = countMatches(sourcePtr + 1, sourcePtr + 1 - distance, safecast(bytesToEncode - i - 1));
+
+				if (matchLength >= 4 )
+				{
+					stream.AppendToBitStream(codes_f[*sourcePtr]);
+					 
+					stream.AppendToBitStream(lcodes_f[matchLength]);
+					WriteDistance(dcodes_f, distance);
+
+					i += matchLength ;
 					continue;
 				}
 			}
