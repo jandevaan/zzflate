@@ -289,22 +289,22 @@ TEST(ZzFlate, CanterburyZlib6)
 }
 
  
-//
-//TEST(ZzFlate, MovieZlib)
-//{
-//	for (auto x : directory("c://dev//large"))
-//	{
-//		testroundtripperfzlib(readFile(x), 1, x, 1);
-//	}
-//}
-//
-//TEST(ZzFlate, Movie)
-//{
-//	for (auto x : directory("c://dev//large"))
-//	{
-//		testroundtripperf(readFile(x), 1, 1);
-//	}
-//}
+
+TEST(ZzFlate, MovieZlib)
+{
+	for (auto x : directory("c://dev//large"))
+	{
+		testroundtripperfzlib(readFile(x), 1, x, 1);
+	}
+}
+
+TEST(ZzFlate, Movie)
+{
+	for (auto x : directory("c://dev//large"))
+	{
+		testroundtripperf(readFile(x), 1, 1);
+	}
+}
 
 
 TEST(ZzxFlatePerf, UncompressedPerf)
