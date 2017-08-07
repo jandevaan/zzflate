@@ -205,10 +205,10 @@ int main(int ac, char* av[])
 {
 	StaticInit();
 
-	auto buffer = readFile("c:\\dev\\corpus\\ptt5");
-	buffer.resize(4500);
+	auto buffer = readFile("c:\\tools\\sysinternals\\adinsight.exe");
+	//buffer.resize(4500);
 
-	testroundtrip(buffer, 2, "c:\\dev\\corpus\\ptt5");
+	testroundtrip(buffer, 2, "c:\\tools\\sysinternals\\adinsight.exe");
 	 
 	testing::InitGoogleTest(&ac, av);
 	return RUN_ALL_TESTS();

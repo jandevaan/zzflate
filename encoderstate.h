@@ -38,7 +38,7 @@ private:
 	static const unsigned hashSize = 1 << hashBits;
 	static const unsigned hashMask = hashSize - 1;
 	static const int maxRecords = 20000;
-
+	static const int maxDistance = 0x8000;
 
 
 	static const uint8_t extraLengthBits[286];
@@ -362,7 +362,7 @@ public:
 			auto distance = i - hashtable[newHash];
 			hashtable[newHash] = i;
 
-			if (unsigned(distance) <= 0x8000)
+			if (unsigned(distance) <= maxDistance)
 			{
 				auto matchLength = countMatches(sourcePtr  , sourcePtr   - distance, safecast(bytesToEncode - i));
 
@@ -375,18 +375,7 @@ public:
 					continue;
 				}
 
-				matchLength = countMatches(sourcePtr + 1, sourcePtr + 1 - distance, safecast(bytesToEncode - i - 1));
-
-				if (matchLength >= 4 )
-				{
-					stream.AppendToBitStream(codes_f[*sourcePtr]);
-					 
-					stream.AppendToBitStream(lcodes_f[matchLength]);
-					WriteDistance(dcodes_f, distance);
-
-					i += matchLength ;
-					continue;
-				}
+			 
 			}
 			 
 			stream.AppendToBitStream(codes_f[*sourcePtr]);
@@ -407,11 +396,13 @@ public:
 		  
 		for (int j = 1; j < length; ++j)
 		{ 
+			 
+
 			auto newHash = CalcHash(source + j);
 			auto distance = j - 1 - (hashtable[newHash]);
 			hashtable[newHash] = j - 1;
 
-			if (distance > 32768)
+			if (distance >= maxDistance)
 				continue;
 
 			int matchStart = j;
