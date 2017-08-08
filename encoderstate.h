@@ -237,7 +237,7 @@ public:
 			return UncompressedFallback(length, source, final);
 		
 		int available = stream.EnsureOutputLength(requiredLength);
-		if (available < length)
+		if (available < requiredLength)
 			return 0;
 
 		StartBlock(UserDefinedHuffman, length < byteCount ? 0 : final);
@@ -342,6 +342,7 @@ public:
 		{
 			hashtable[i] = hashtable[i] - offset;
 		}
+		 
 	}
 
 	int WriteBlockFixedHuff(const uint8_t * source, int byteCount, int final)
@@ -535,12 +536,14 @@ public:
 
 	bool AddData(const uint8_t* start, const uint8_t* end, uint32_t& adler)
 	{ 
+		int64_t total = 0;
 		while (start != end)
 		{
 			auto bytesRead = WriteDeflateBlock(start, safecast(end - start), true);
 			if (bytesRead <= 0)
 				return false;
 
+			total += bytesRead;
 			adler = adler32x(adler, start, bytesRead);
 			start += bytesRead;
 		}
