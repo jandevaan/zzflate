@@ -96,6 +96,11 @@ public:
  		Init();
 	}
 
+	void SetLevel(int newlevel)
+	{
+		this->level = newlevel;
+	}
+
 	static void buildLengthLookup();
 	static void InitFixedHuffman();
 	static int FindDistance(int offset);
@@ -534,12 +539,12 @@ public:
 
 
 
-	bool AddData(const uint8_t* start, const uint8_t* end, uint32_t& adler)
+	bool AddData(const uint8_t* start, const uint8_t* end, uint32_t& adler, bool final)
 	{ 
 		int64_t total = 0;
 		while (start != end)
 		{
-			auto bytesRead = WriteDeflateBlock(start, safecast(end - start), true);
+			auto bytesRead = WriteDeflateBlock(start, safecast(end - start), final);
 			if (bytesRead <= 0)
 				return false;
 

@@ -107,7 +107,7 @@ int uncompress(uint8_t *dest, size_t *destLen, const uint8_t *source, size_t sou
 }
 std::vector<uint8_t> bufferCompressed = std::vector<uint8_t>(1500000);
 
-int testroundtripperf(const std::vector<uint8_t>& bufferUncompressed, int compression, int repeatcount = 10)
+int testroundtripperf(const std::vector<uint8_t>& bufferUncompressed, bool multithread, int compression, int repeatcount = 10)
 { 
 	auto testSize = bufferUncompressed.size();
 
@@ -123,7 +123,17 @@ int testroundtripperf(const std::vector<uint8_t>& bufferUncompressed, int compre
 	for (int i = 0; i < repeatcount; ++i)
 	{
 		comp_len = safecast(bufferCompressed.size());
-		ZzFlateEncode(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
+
+		if (multithread)
+		{
+			ZzFlateEncodeThreaded(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
+		}
+		else
+		{
+			ZzFlateEncode(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
+
+		}
+
 		if (debugging)
 			return 0;
 
@@ -162,17 +172,30 @@ int testroundtripperfzlib(const std::vector<uint8_t>& bufferUncompressed, int co
 
 	return 0;
 }
+bool threaded = false;
 
 int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compression, std::string name = "")
 { 
 	auto testSize = bufferUncompressed.size();
 	auto  compressed = std::vector<uint8_t>();
 
-	ZzFlateEncode2(&bufferUncompressed[0], bufferUncompressed.size(), compression, [&compressed](auto h)->bool
-	{ 
-		compressed.insert(compressed.end(), h.buffer, h.buffer + h.bytesStored); 
-		return false;
-	});
+	if (threaded && compression == 1)
+	{
+		compressed.resize(bufferUncompressed.size());
+		unsigned long comp_len = compressed.size();
+		ZzFlateEncodeThreaded(&compressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
+		compressed.resize(comp_len);
+
+	}
+	else
+	{
+		ZzFlateEncode2(&bufferUncompressed[0], bufferUncompressed.size(), compression, [&compressed](auto h)->bool
+		{
+			compressed.insert(compressed.end(), h.buffer, h.buffer + h.bytesStored);
+			return false;
+		});
+
+	}
 	
 	auto comp_len = compressed.size();
 	std::cout << std::fixed;
@@ -220,6 +243,21 @@ namespace
 	std::vector<uint8_t> bufferUncompressed = readFile("c:\\tools\\sysinternals\\adinsight.exe");
 }
 
+
+
+TEST(Adler, Combine)
+{
+	std::vector<unsigned char> asdf = { 0, 1, 23, 30, 4,69, 145, 32,216 };
+
+	auto adlerTotal = adler32x(1, &asdf[0], 9);
+
+	int split = 5;
+	auto adlerFirst = adler32x(1, &asdf[0], split);
+	auto adlerSecond = adler32x(0, &asdf[split], 9 - split);
+	auto combined = combine(adlerFirst, adlerSecond, 9 - split);
+
+	ASSERT_EQ(adlerTotal, combined);
+}
 
 TEST(ZzFlate, FixedHuffman)
 {  
@@ -303,31 +341,33 @@ TEST(ZzFlate, Movie)
 {
 	for (auto x : directory("c://dev//large"))
 	{
-		testroundtripperf(readFile(x), 1, 1);
+		testroundtripperf(readFile(x),false, 1, 1);
 	}
 }
 
 
 TEST(ZzxFlatePerf, UncompressedPerf)
 {
-	testroundtripperf(bufferUncompressed, 0);
+	testroundtripperf(bufferUncompressed, false, 0);
 }
  
 TEST(ZzxFlatePerf, UserHuffmanPerf)
 {
-	testroundtripperf(bufferUncompressed, 2);
+	testroundtripperf(bufferUncompressed, false, 2);
 }
 
 
 TEST(ZzxFlatePerf, FixedHuffmanPerf)
 {
-	testroundtripperf(bufferUncompressed, 1);
+	testroundtripperf(bufferUncompressed, false, 1);
 }
+
+ 
 
 
 TEST(ZzxFlatePerf, FixedHuffmanPerf2)
 {
-	testroundtripperf(bufferUncompressed, 1);
+	testroundtripperf(bufferUncompressed, false, 1);
 }
 
 
@@ -345,4 +385,3 @@ TEST(ZlibPerf, ZlibCompress6)
 {
 	testroundtripperfzlib(bufferUncompressed, 6);
 }
- 
