@@ -109,18 +109,16 @@ int getPos(int totalLength, int n, int divides)
 
 void ZzFlateEncodeThreaded(uint8_t *dest, unsigned long *destLen, const uint8_t *source, size_t sourceLen, int level)
 {
-	int divides = std::thread::hardware_concurrency();
-
 	if (level < 0 || level >3)
 	{
 		*destLen = ~0ul;
 		return;
 	} 
 
-	int outputPartition = (*destLen + divides - 1) / divides;
-
-	struct results { int64_t Count; uint32_t Adler; };
-	auto doPacket = [level, source, sourceLen, dest, destLen, divides, outputPartition](int n) -> results
+	struct results { int64_t InputCount; int64_t Count; uint32_t Adler; };
+	int divides = std::thread::hardware_concurrency();
+	 
+	auto doPacket = [level, source, sourceLen, dest, destLen, divides](int n) -> results
 	{ 
 		auto dstStart = getPos(*destLen, n, divides);
 		auto dstEnd = getPos(*destLen, n + 1, divides);
@@ -135,8 +133,8 @@ void ZzFlateEncodeThreaded(uint8_t *dest, unsigned long *destLen, const uint8_t 
 		}
 		
 		uint32_t adler = n == 0;
-		auto srcStart = getPos(sourceLen, n, divides);
-		auto srcEnd = getPos(sourceLen, n + 1, divides);
+		auto srcStart = getPos(safecast(sourceLen), n, divides);
+		auto srcEnd = getPos(safecast(sourceLen), n + 1, divides);
 
 		state->AddData(source + srcStart, source + srcEnd - 1, adler, false);
 		state->SetLevel(0);
@@ -144,7 +142,7 @@ void ZzFlateEncodeThreaded(uint8_t *dest, unsigned long *destLen, const uint8_t 
 
 		state->stream.Flush();
 
-		return { state->stream.byteswritten(), adler };
+		return { srcEnd - srcStart, state->stream.byteswritten(), adler };
 	};
 
 	auto futures = std::vector<std::future<results>>( );
@@ -155,7 +153,7 @@ void ZzFlateEncodeThreaded(uint8_t *dest, unsigned long *destLen, const uint8_t 
 	}
 	auto resultA = doPacket(0);
 
-	int countSofar = resultA.Count;
+	auto countSofar = resultA.Count;
 
 	int n = 1;
 	auto adler = resultA.Adler;
@@ -164,14 +162,14 @@ void ZzFlateEncodeThreaded(uint8_t *dest, unsigned long *destLen, const uint8_t 
 	{
 		auto result = f.get();
 		memmove(dest + countSofar, dest + getPos(*destLen, n, divides), result.Count);
-	    adler = combine(adler, result.Adler, getPos(sourceLen, n + 1, divides) - getPos(sourceLen, n, divides));
+	    adler = combine(adler, result.Adler, result.InputCount);
 		countSofar += result.Count;
 		n++;
 	} 
-	auto tempState = std::make_unique<EncoderState>(0, dest + countSofar, safecast(destLen - countSofar));
 
-	tempState->stream.WriteBigEndianU32(adler);
-	tempState->stream.Flush();
+	outputbitstream tempStream(dest + countSofar, safecast(destLen - countSofar));
+	tempStream.WriteBigEndianU32(adler);
+	tempStream.Flush();
 	 
 	*destLen = safecast(countSofar + 4);
 }

@@ -380,8 +380,6 @@ public:
 					i += matchLength - 1;
 					continue;
 				}
-
-			 
 			}
 			 
 			stream.AppendToBitStream(codes_f[*sourcePtr]);
@@ -456,7 +454,7 @@ public:
 		int index = 0;
 		for (auto r : comprecords)
 		{
-			for (int i = 0; i < r.literals; i++)
+			for (unsigned i = 0; i < r.literals; i++)
 			{
 				symbolFreqs[source[index + i]]++;			 
 			}

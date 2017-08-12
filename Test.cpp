@@ -35,7 +35,7 @@ std::vector<std::string> directory(std::string folder)
 	return files;
 }
 
-std::vector<uint8_t> readFile(std::string name)
+std::vector<uint8_t> ReadFile(std::string name)
 {
 	std::ifstream file;
 	file.exceptions(std::ifstream::badbit | std::ifstream::failbit | std::ifstream::eofbit);
@@ -51,7 +51,7 @@ std::vector<uint8_t> readFile(std::string name)
 }
 
 
-int uncompress(uint8_t *dest, size_t *destLen, const uint8_t *source, size_t sourceLen) 
+int ZlibUncompress(uint8_t *dest, size_t *destLen, const uint8_t *source, size_t sourceLen) 
 {
 	z_stream stream = {};
 	int err;
@@ -182,7 +182,7 @@ int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compressio
 	if (threaded && compression == 1)
 	{
 		compressed.resize(bufferUncompressed.size());
-		unsigned long comp_len = compressed.size();
+		unsigned long comp_len = safecast(compressed.size());
 		ZzFlateEncodeThreaded(&compressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
 		compressed.resize(comp_len);
 
@@ -206,7 +206,7 @@ int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compressio
 	std::vector<uint8_t> decompressed(testSize);
 	auto unc_len = decompressed.size();
 
-	auto error = uncompress(&decompressed[0], &unc_len, &compressed[0], comp_len);
+	auto error = ZlibUncompress(&decompressed[0], &unc_len, &compressed[0], comp_len);
 
 	EXPECT_EQ(error, Z_OK);
 
@@ -228,19 +228,13 @@ int main(int ac, char* av[])
 {
 	StaticInit();
 
-	auto filename = "c:\\tools\\sysinternals\\adinsight.exe";
-
-//	auto buffer = readFile(filename);
-	  
-//	testroundtrip(buffer, 2, filename);
-	 
 	testing::InitGoogleTest(&ac, av);
 	return RUN_ALL_TESTS();
 }
 
 namespace
 {
-	std::vector<uint8_t> bufferUncompressed = readFile("c:\\tools\\sysinternals\\adinsight.exe");
+	std::vector<uint8_t> bufferUncompressed = ReadFile("c:\\tools\\sysinternals\\adinsight.exe");
 }
 
 
@@ -286,16 +280,15 @@ TEST(ZzFlate, CanterburyZzflate)
 {
 	for(auto x : directory("c://dev//corpus"))
 	{
-		testroundtrip(readFile(x), 2, x);
-	}
-	
+		testroundtrip(ReadFile(x), 2, x);
+	}	
 }
 //
 //TEST(ZzFlate, CanterburyNoCompression)
 //{
 //	for (auto x : directory("c://dev//corpus"))
 //	{
-//		testroundtrip(readFile(x), 0, x);
+//		testroundtrip(ReadFile(x), 0, x);
 //	}
 //
 //}
@@ -306,7 +299,7 @@ TEST(ZzFlate, CanterburyZlib)
 {
 	for (auto x : directory("c://dev//corpus"))
 	{
-		testroundtripperfzlib(readFile(x), 1, x, 1);
+		testroundtripperfzlib(ReadFile(x), 1, x, 1);
 	}
 }
 
@@ -315,7 +308,7 @@ TEST(ZzFlate, CanterburyZlib3)
 {
 	for (auto x : directory("c://dev//corpus"))
 	{
-		testroundtripperfzlib(readFile(x), 3, x, 1);
+		testroundtripperfzlib(ReadFile(x), 3, x, 1);
 	}
 }
 
@@ -323,25 +316,25 @@ TEST(ZzFlate, CanterburyZlib6)
 {
 	for (auto x : directory("c://dev//corpus"))
 	{
-		testroundtripperfzlib(readFile(x), 6, x, 1);
+		testroundtripperfzlib(ReadFile(x), 6, x, 1);
 	}
 }
 
  
 
-TEST(ZzFlate, MovieZlib)
+TEST(ZzFlate, LargeZlib)
 {
 	for (auto x : directory("c://dev//large"))
 	{
-		testroundtripperfzlib(readFile(x), 1, x, 1);
+		testroundtripperfzlib(ReadFile(x), 1, x, 1);
 	}
 }
 
-TEST(ZzFlate, Movie)
+TEST(ZzFlate, LargeFiles)
 {
 	for (auto x : directory("c://dev//large"))
 	{
-		testroundtripperf(readFile(x),false, 1, 1);
+	//	testroundtripperf(ReadFile(x),false, 1, 1);
 	}
 }
 
@@ -355,14 +348,21 @@ TEST(ZzxFlatePerf, UserHuffmanPerf)
 {
 	testroundtripperf(bufferUncompressed, false, 2);
 }
-
+TEST(ZzxFlatePerf, UserHuffmanPerfM)
+{
+	testroundtripperf(bufferUncompressed, true, 2);
+}
 
 TEST(ZzxFlatePerf, FixedHuffmanPerf)
 {
 	testroundtripperf(bufferUncompressed, false, 1);
 }
 
- 
+TEST(ZzxFlatePerf, FixedHuffmanPerfM)
+{
+	testroundtripperf(bufferUncompressed, true, 1);
+}
+
 
 
 TEST(ZzxFlatePerf, FixedHuffmanPerf2)
