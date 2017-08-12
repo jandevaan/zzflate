@@ -172,7 +172,7 @@ int testroundtripperfzlib(const std::vector<uint8_t>& bufferUncompressed, int co
 
 	return 0;
 }
-bool threaded = false;
+bool threaded = true;
 
 int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compression, std::string name = "")
 { 
