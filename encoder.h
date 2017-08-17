@@ -30,7 +30,7 @@ struct compressionRecord
 };
 
 
-struct EncoderState
+struct Encoder
 {
 
 private:
@@ -81,7 +81,7 @@ public:
 
 public:
 
-	EncoderState(int level, uint8_t* outputBuffer, int64_t bytes) :
+	Encoder(int level, uint8_t* outputBuffer, int64_t bytes) :
 		stream(outputBuffer, bytes),
 		level(level)
  	{ 
@@ -89,7 +89,7 @@ public:
 	}
 
 
-	EncoderState(int level) :
+	Encoder(int level) :
 		stream(nullptr, 0),
 		level(level)
  	{

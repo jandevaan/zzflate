@@ -22,6 +22,7 @@ bool debugging = true;
 
 
 namespace fs = std::experimental::filesystem;
+namespace ch = std::chrono;
 
 std::vector<std::string> directory(std::string folder)
 {
@@ -115,9 +116,9 @@ int testroundtripperf(const std::vector<uint8_t>& bufferUncompressed, bool multi
 	
 	uLongf comp_len = 0;
 
-	std::chrono::steady_clock::time_point times[11];
+	ch::steady_clock::time_point times[11];
 
-	times[0] = std::chrono::high_resolution_clock::now();
+	times[0] = ch::high_resolution_clock::now();
  
 
 	for (int i = 0; i < repeatcount; ++i)
@@ -137,7 +138,7 @@ int testroundtripperf(const std::vector<uint8_t>& bufferUncompressed, bool multi
 		if (debugging)
 			return 0;
 
-		times[i + 1] = std::chrono::high_resolution_clock::now();
+		times[i + 1] = ch::high_resolution_clock::now();
 	}
 
 	std::cout << "Reduced "  << testSize << " to " << ((comp_len) * 100.0 / testSize) << "%\r\n";
@@ -145,7 +146,7 @@ int testroundtripperf(const std::vector<uint8_t>& bufferUncompressed, bool multi
 
 	for(int i = 0; i < repeatcount; ++i)
 	{
-		auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(times[i + 1] - times[i]);
+		auto microseconds = ch::duration_cast<ch::microseconds>(times[i + 1] - times[i]);
 		std::cout << microseconds.count()/1000.0 << " ms\n";
 	}
 

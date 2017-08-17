@@ -26,7 +26,7 @@ struct header
 
 void StaticInit()
 {
-	EncoderState::buildLengthLookup();
+	Encoder::buildLengthLookup();
 }
 
 
@@ -51,7 +51,7 @@ void ZzFlateEncode(uint8_t *dest, unsigned long *destLen, const uint8_t *source,
 		return;
 	}
 
-	auto state = std::make_unique<EncoderState>(level, dest, *destLen);
+	auto state = std::make_unique<Encoder>(level, dest, *destLen);
 	 
 	auto header = getHeader();
 	state->stream.WriteU8(header.CMF);
@@ -77,7 +77,7 @@ void ZzFlateEncode2(const uint8_t *source, size_t sourceLen, int level, std::fun
 		return;
 	}
 
-	auto state = std::make_unique<EncoderState>(level);
+	auto state = std::make_unique<Encoder>(level);
 
 	auto header = getHeader();
 	state->stream.WriteU8(header.CMF);
@@ -116,52 +116,53 @@ void ZzFlateEncodeThreaded(uint8_t *dest, unsigned long *destLen, const uint8_t 
 	} 
 
 	struct results { int64_t InputCount; int64_t Count; uint32_t Adler; };
-	int divides = std::thread::hardware_concurrency();
+	int partitions = std::thread::hardware_concurrency();
 	 
-	auto doPacket = [level, source, sourceLen, dest, destLen, divides](int n) -> results
+	auto doPacket = [level, source, sourceLen, dest, destLen, partitions](int n) -> results
 	{ 
-		auto dstStart = getPos(*destLen, n, divides);
-		auto dstEnd = getPos(*destLen, n + 1, divides);
+		auto dstStart = getPos(*destLen, n, partitions);
+		auto dstEnd = getPos(*destLen, n + 1, partitions);
 		 
-		auto state = std::make_unique<EncoderState>(level, dest + dstStart, safecast(dstEnd - dstStart));
+		auto encoder = std::make_unique<Encoder>(level, dest + dstStart, safecast(dstEnd - dstStart));
 
 		if (n == 0)
 		{
 			auto header = getHeader();
-			state->stream.WriteU8(header.CMF);
-			state->stream.WriteU8(header.FLG); 
+			encoder->stream.WriteU8(header.CMF);
+			encoder->stream.WriteU8(header.FLG); 
 		}
 		
 		uint32_t adler = n == 0;
-		auto srcStart = getPos(safecast(sourceLen), n, divides);
-		auto srcEnd = getPos(safecast(sourceLen), n + 1, divides);
+		auto srcStart = getPos(safecast(sourceLen), n, partitions);
+		auto srcEnd = getPos(safecast(sourceLen), n + 1, partitions);
+		  
+		encoder->AddData(source + srcStart, source + srcEnd - 1, adler, false);
+		
+		//byte align stream by writing 1 byte uncompressed 
+		encoder->SetLevel(0);
+		encoder->AddData(source + srcEnd - 1, source + srcEnd, adler, srcEnd == sourceLen);
 
-		state->AddData(source + srcStart, source + srcEnd - 1, adler, false);
-		state->SetLevel(0);
-		state->AddData(source + srcEnd - 1, source + srcEnd, adler, srcEnd == sourceLen);
+		encoder->stream.Flush();
 
-		state->stream.Flush();
-
-		return { srcEnd - srcStart, state->stream.byteswritten(), adler };
+		return { srcEnd - srcStart, encoder->stream.byteswritten(), adler };
 	};
 
 	auto futures = std::vector<std::future<results>>( );
 
-	for (int n = 1; n < divides; ++n)
+	for (int n = 1; n < partitions; ++n)
 	{
 		futures.push_back(std::async(doPacket, n));
 	}
 	auto resultA = doPacket(0);
 
 	auto countSofar = resultA.Count;
-
-	int n = 1;
 	auto adler = resultA.Adler;
 
+	int n = 1;
 	for (auto& f : futures)
 	{
 		auto result = f.get();
-		memmove(dest + countSofar, dest + getPos(*destLen, n, divides), result.Count);
+		memmove(dest + countSofar, dest + getPos(*destLen, n, partitions), result.Count);
 	    adler = combine(adler, result.Adler, result.InputCount);
 		countSofar += result.Count;
 		n++;

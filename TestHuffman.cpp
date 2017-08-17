@@ -10,14 +10,14 @@
 
 TEST(ZzFlate, TestDistanceSearch)
 {
-	EncoderState state(0, nullptr, 0);
+	Encoder state(0, nullptr, 0);
 
 	int failCount = 0;
 
 	for (int distance = 0; distance <= 32768; ++distance)
 	{
-		int a = EncoderState::FindDistance(distance);
-		int b = EncoderState::ReadLut(distance);
+		int a = Encoder::FindDistance(distance);
+		int b = Encoder::ReadLut(distance);
 
 		if (a != b)
 		{

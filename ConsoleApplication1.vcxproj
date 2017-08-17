@@ -173,7 +173,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="config.h" />
-    <ClInclude Include="encoderstate.h" />
+    <ClInclude Include="encoder.h" />
     <ClInclude Include="generic.h" />
     <ClInclude Include="huffman.h" />
     <ClInclude Include="outputbitstream.h" />
