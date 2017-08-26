@@ -25,8 +25,7 @@ namespace fs = std::experimental::filesystem;
 namespace ch = std::chrono;
 
 std::vector<std::string> directory(std::string folder)
-{
-
+{ 
 	std::vector<std::string> files = {};
 	 
 	for (fs::directory_entry p : fs::directory_iterator(folder))
@@ -52,7 +51,7 @@ std::vector<uint8_t> ReadFile(std::string name)
 }
 
 
-int ZlibUncompress(uint8_t *dest, size_t *destLen, const uint8_t *source, size_t sourceLen) 
+int ZlibUncompress(uint8_t *dest, size_t *destLen, const uint8_t *source, size_t sourceLen, bool gzip) 
 {
 	z_stream stream = {};
 	int err;
@@ -72,8 +71,8 @@ int ZlibUncompress(uint8_t *dest, size_t *destLen, const uint8_t *source, size_t
 	stream.next_in = (uint8_t *)source;
 	stream.avail_in = 0;
 
-	err = inflateInit(&stream);
-	if (err != Z_OK) return err;
+	err = inflateInit2(&stream, gzip? 15 | 16 : 15);
+ 	if (err != Z_OK) return err;
 
 	stream.next_out = dest;
 	stream.avail_out = 0;
@@ -207,7 +206,7 @@ int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compressio
 	std::vector<uint8_t> decompressed(testSize);
 	auto unc_len = decompressed.size();
 
-	auto error = ZlibUncompress(&decompressed[0], &unc_len, &compressed[0], comp_len);
+	auto error = ZlibUncompress(&decompressed[0], &unc_len, &compressed[0], comp_len, false);
 
 	EXPECT_EQ(error, Z_OK);
 
@@ -222,6 +221,43 @@ int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compressio
 	return safecast(comp_len);
 }
 
+
+
+int testroundtripgzip(const std::vector<uint8_t>& bufferUncompressed, int compression, std::string name = "")
+{
+	auto testSize = bufferUncompressed.size();
+	auto  compressed = std::vector<uint8_t>();
+ 
+ 
+
+	compressed.resize(bufferUncompressed.size());
+	unsigned long comp_len = safecast(compressed.size());
+
+	GzipEncode(&compressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression );
+
+  
+	std::cout << std::fixed;
+	std::cout << std::setprecision(2);
+
+	std::cout << "Reduced " << name << " " << testSize << " to " << ((comp_len) * 100.0 / testSize) << "%\r\n";
+
+	std::vector<uint8_t> decompressed(testSize);
+	auto unc_len = decompressed.size();
+
+	auto error = ZlibUncompress(&decompressed[0], &unc_len, &compressed[0], comp_len, true);
+
+	EXPECT_EQ(error, Z_OK);
+
+	if (error != Z_OK)
+		return -1;
+
+	for (auto i = 0; i < testSize; ++i)
+	{
+		EXPECT_EQ(bufferUncompressed[i], decompressed[i]) << "pos " << i;
+	}
+
+	return safecast(comp_len);
+}
 
 
 
@@ -252,6 +288,10 @@ TEST(Adler, Combine)
 	auto combined = combine(adlerFirst, adlerSecond, 9 - split);
 
 	ASSERT_EQ(adlerTotal, combined);
+}
+TEST(ZzGzip, Simple)
+{
+	testroundtripgzip(bufferUncompressed, 1);
 }
 
 TEST(ZzFlate, FixedHuffman)

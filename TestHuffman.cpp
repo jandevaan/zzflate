@@ -5,7 +5,7 @@
 #include <gtest/gtest.h>
 #include "huffman.h"
 #include <numeric>
-#include "encoderstate.h"
+#include "encoder.h"
 
 
 TEST(ZzFlate, TestDistanceSearch)

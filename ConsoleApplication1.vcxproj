@@ -173,6 +173,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="config.h" />
+    <ClInclude Include="crc.h" />
     <ClInclude Include="encoder.h" />
     <ClInclude Include="generic.h" />
     <ClInclude Include="huffman.h" />
@@ -183,6 +184,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="adler.cpp" />
+    <ClCompile Include="crc.cpp" />
     <ClCompile Include="Encoder.cpp" />
     <ClCompile Include="Test.cpp" />
     <ClCompile Include="huffman.cpp" />

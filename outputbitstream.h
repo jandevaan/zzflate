@@ -131,6 +131,11 @@ public:
 		return true;
 	}
 
+	void WriteU32(uint32_t value)
+	{
+		PadToByte();
+		AppendToBitStream(value, 32);
+	}
 
 	void WriteU8(uint8_t value)
 	{
