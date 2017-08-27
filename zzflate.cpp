@@ -33,13 +33,87 @@ void StaticInit()
 const int DEFLATE = 8;
 
 
-header getHeader()
+std::vector<uint8_t> getHeader()
 {
 	auto h = header{ { DEFLATE, 7 } };
 	auto rem = (h.CMF * 0x100 + h.FLG) % 31;
 	h.fieldsFLG.FCHECK = 31 - rem;
-	return h;
+	return { h.CMF, h.FLG };
 }
+
+
+
+std::vector<int> partitionRange(size_t total, int count)
+{
+	auto results = std::vector<int>(count + 1);
+	auto step = (total + count - 1) / count;
+	for (int i = 1; i < count; ++i)
+	{
+		results[i] = step * i;
+	}
+	results[count] = total;
+
+	return results;
+}
+
+
+int64_t DeflateThreaded(uint8_t *dest, unsigned long destLen, const uint8_t *source, size_t sourceLen, const Config* config)
+{
+	auto level = config->level;
+	if (!config->threaded)
+	{
+		auto state = std::make_unique<Encoder>(config->level, dest, destLen);
+
+		state->AddData(source, source + sourceLen, true);
+		state->stream.Flush();
+		return state->stream.byteswritten();
+	}
+	int partitions = std::thread::hardware_concurrency();
+
+	auto sourcePartitions = partitionRange(sourceLen, partitions);
+	auto destpartitions = partitionRange(destLen, partitions);
+
+	auto doPacket = [level, source, sourcePartitions, dest, destpartitions](int n) -> int64_t
+	{
+		auto encoder = std::make_unique<Encoder>(level, dest + destpartitions[n], safecast(destpartitions[n + 1] - destpartitions[n]));
+
+
+		auto srcStart = sourcePartitions[n];
+		auto srcEnd = sourcePartitions[n + 1];
+
+		encoder->AddData(source + srcStart, source + srcEnd - 1, false);
+
+		//byte align stream by writing 1 byte uncompressed 
+		encoder->SetLevel(0);
+		encoder->AddData(source + srcEnd - 1, source + srcEnd, n == sourcePartitions.size() - 2);
+
+		encoder->stream.Flush();
+
+		return { encoder->stream.byteswritten() };
+	};
+
+	auto futures = std::vector<std::future<int64_t>>();
+
+	for (int n = 1; n < partitions; ++n)
+	{
+		futures.push_back(std::async(doPacket, n));
+	}
+	auto resultA = doPacket(0);
+
+	auto countSofar = resultA;
+
+
+	int n = 1;
+	for (auto& f : futures)
+	{
+		auto count = f.get();
+		memmove(dest + countSofar, dest + destpartitions[n], count);
+		countSofar += count;
+		n++;
+	}
+	return countSofar;
+}
+
 
 
 void ZzFlateEncode(uint8_t *dest, unsigned long *destLen, const uint8_t *source, size_t sourceLen, int level)
@@ -53,9 +127,10 @@ void ZzFlateEncode(uint8_t *dest, unsigned long *destLen, const uint8_t *source,
 	auto state = std::make_unique<Encoder>(level, dest, *destLen);
 	 
 	auto header = getHeader();
-	state->stream.WriteU8(header.CMF);
-	state->stream.WriteU8(header.FLG);
-
+	for (auto b : header)
+	{
+		state->stream.WriteU8(b);
+	}
 	 
 	state->AddData(source, source + sourceLen, true);
 	auto adler = adler32x(1, source, sourceLen);
@@ -79,9 +154,10 @@ void ZzFlateEncode2(const uint8_t *source, size_t sourceLen, int level, std::fun
 	auto state = std::make_unique<Encoder>(level);
 
 	auto header = getHeader();
-	state->stream.WriteU8(header.CMF);
-	state->stream.WriteU8(header.FLG);
-	 
+	for (auto b : header)
+	{
+		state->stream.WriteU8(b);
+	}
 	state->AddData(source, source + sourceLen,  true);
 	auto adler = adler32x(1, source, sourceLen);
 	state->stream.WriteBigEndianU32(adler);
@@ -102,6 +178,11 @@ int getPos(int totalLength, int n, int divides)
 
 }
 
+std::vector<uint8_t> raw;
+std::vector<uint8_t> zlib ;
+std::vector<uint8_t> gzipHeader = { 0x1f, 0x8b, 8, 0, 0,0,0,0, 0, 0xFF};
+
+
 void GzipEncode(uint8_t *dest, unsigned long *destLen, const uint8_t *source, size_t sourceLen, int level)
 {
 	if (level < 0 || level >3)
@@ -109,7 +190,7 @@ void GzipEncode(uint8_t *dest, unsigned long *destLen, const uint8_t *source, si
 		*destLen = ~0ul;
 		return;
 	}
-	 
+
 	auto state = std::make_unique<Encoder>(level, dest, *destLen);
 
 	state->stream.WriteU8(0x1f); // ID1
@@ -122,94 +203,79 @@ void GzipEncode(uint8_t *dest, unsigned long *destLen, const uint8_t *source, si
 
 	state->stream.WriteU8(0);
 	state->stream.WriteU8(255); // OS
-	 
+
 	state->AddData(source, source + sourceLen, true);
 	auto crc = crc32(source, sourceLen);
 	state->stream.Flush();
-// add CRC
-	
-	state->stream.WriteU32( crc);
+	// add CRC
+
+	state->stream.WriteU32(crc);
 	state->stream.WriteU32((uint32_t)sourceLen);
 
 }
 
-std::vector<int> partitionRange(size_t total, int count)
+ 
+void GzipEncode(uint8_t *dest, unsigned long *destLen, const uint8_t *source, size_t sourceLen, const Config* config)
 {
-	auto results = std::vector<int>(count + 1);
-	int step = (total + count - 1) / count;
-	for (int i = 1; i < count; ++i)
+	if (config->level < 0 || config->level > 3)
 	{
-		results[i] = step * i;
+		*destLen = ~0ul;
+		return;
 	}
-	results[count] = total;
 
-	return results;
+	auto header = gzipHeader;
+
+	for (int i = 0; i < header.size(); ++i)
+	{
+		dest[i] = header[i];
+	}
+	auto hLen = header.size();
+
+	//auto countSofar = DeflateThreaded(dest + hLen, *destLen - hLen, source, sourceLen, config) + hLen;
+	auto state = std::make_unique<Encoder>(config->level, dest + hLen, *destLen - hLen);
+
+	state->AddData(source, source + sourceLen, true);
+	state->stream.Flush();
+	auto countSofar = state->stream.byteswritten() + hLen;
+
+	outputbitstream tempStream(dest + countSofar, safecast(*destLen - countSofar));
+
+	auto crc = crc32(source, sourceLen);
+
+// add CRC
+	
+	tempStream.WriteU32( crc);
+	tempStream.WriteU32((uint32_t)sourceLen);
+	tempStream.Flush();
+
+	*destLen = safecast(countSofar + 8);
+
 }
 
-void ZzFlateEncodeThreaded(uint8_t *dest, unsigned long *destLen, const uint8_t *source, size_t sourceLen, int level)
+void ZzFlateEncodeThreaded(uint8_t *dest, unsigned long *destLen, const uint8_t *source, size_t sourceLen, const Config* config)
 {
+	auto level = config->level;
+
 	if (level < 0 || level >3)
 	{
 		*destLen = ~0ul;
 		return;
-	} 
-
-	int partitions = std::thread::hardware_concurrency();
-
-	auto sourcePartitions = partitionRange(sourceLen, partitions);
-	auto destpartitions = partitionRange(*destLen, partitions);
-
-	 
-	auto doPacket = [level, source, sourcePartitions, dest, destpartitions](int n) -> int64_t
-	{  
-		auto encoder = std::make_unique<Encoder>(level, dest + destpartitions[n], safecast(destpartitions[n + 1] - destpartitions[n]));
-
-		if (n == 0)
-		{
-			auto header = getHeader();
-			encoder->stream.WriteU8(header.CMF);
-			encoder->stream.WriteU8(header.FLG); 
-		}
-		
-	 	auto srcStart = sourcePartitions[n];
-		auto srcEnd = sourcePartitions[n + 1];
-		  
-		encoder->AddData(source + srcStart, source + srcEnd - 1, false);
-		
-		//byte align stream by writing 1 byte uncompressed 
-		encoder->SetLevel(0);
-		encoder->AddData(source + srcEnd - 1, source + srcEnd, n == sourcePartitions.size() -2);
-
-		encoder->stream.Flush();
-
-		return {   encoder->stream.byteswritten() };
-	};
-
-	auto futures = std::vector<std::future<int64_t>>( );
-
-	for (int n = 1; n < partitions; ++n)
-	{
-		futures.push_back(std::async(doPacket, n));
 	}
-	auto resultA = doPacket(0);
+	auto header = getHeader();
 
-	auto countSofar = resultA ;
- 
-
-	int n = 1;
-	for (auto& f : futures)
+	for (int i = 0; i < header.size(); ++i)
 	{
-		auto count = f.get();
-		memmove(dest + countSofar, dest + destpartitions[n], count);
-	  	countSofar += count;
- 		n++;
-	} 
+		dest[i] = header[i];
+	}
+	int hLen = header.size();
+	 
+	auto countSofar = DeflateThreaded(dest + hLen, *destLen - hLen, source, sourceLen, config) + hLen;
 
-	auto adler = adler32x(1, source, sourceLen); 
+	auto adler = adler32x(1, source, sourceLen);
 
-	outputbitstream tempStream(dest + countSofar, safecast(destLen - countSofar));
+	outputbitstream tempStream(dest + countSofar, safecast(*destLen - countSofar));
 	tempStream.WriteBigEndianU32(adler);
 	tempStream.Flush();
-	 
+
 	*destLen = safecast(countSofar + 4);
 }

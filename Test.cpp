@@ -126,7 +126,8 @@ int testroundtripperf(const std::vector<uint8_t>& bufferUncompressed, bool multi
 
 		if (multithread)
 		{
-			ZzFlateEncodeThreaded(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
+			Config config = { 0, compression, true };
+			ZzFlateEncodeThreaded(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), &config);
 		}
 		else
 		{
@@ -183,7 +184,9 @@ int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compressio
 	{
 		compressed.resize(bufferUncompressed.size());
 		unsigned long comp_len = safecast(compressed.size());
-		ZzFlateEncodeThreaded(&compressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
+
+		Config config = {0, compression, true};
+		ZzFlateEncodeThreaded(&compressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), &config);
 		compressed.resize(comp_len);
 
 	}
@@ -232,8 +235,9 @@ int testroundtripgzip(const std::vector<uint8_t>& bufferUncompressed, int compre
 
 	compressed.resize(bufferUncompressed.size());
 	unsigned long comp_len = safecast(compressed.size());
+	Config config = { 0,0, false };
 
-	GzipEncode(&compressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression );
+	GzipEncode(&compressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
 
   
 	std::cout << std::fixed;
