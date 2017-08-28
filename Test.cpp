@@ -235,9 +235,9 @@ int testroundtripgzip(const std::vector<uint8_t>& bufferUncompressed, int compre
 
 	compressed.resize(bufferUncompressed.size());
 	unsigned long comp_len = safecast(compressed.size());
-	Config config = { 0,0, false };
+	Config config = { 0,compression, false };
 
-	GzipEncode(&compressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
+	GzipEncode(&compressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), &config);
 
   
 	std::cout << std::fixed;

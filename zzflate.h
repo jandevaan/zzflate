@@ -17,8 +17,7 @@ void ZzFlateEncodeThreaded(uint8_t *dest, unsigned long *destLen, const uint8_t 
 
 void ZzFlateEncode2(const uint8_t *source, size_t sourceLen, int level, std::function<bool(const bufferHelper&)> callback);
 void GzipEncode(uint8_t *dest, unsigned long *destLen, const uint8_t *source, size_t sourceLen, const Config* config);
-void GzipEncode(uint8_t *dest, unsigned long *destLen, const uint8_t *source, size_t sourceLen, int level);
-
+ 
 
 
 #endif

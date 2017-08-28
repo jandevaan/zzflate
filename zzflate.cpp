@@ -118,27 +118,8 @@ int64_t DeflateThreaded(uint8_t *dest, unsigned long destLen, const uint8_t *sou
 
 void ZzFlateEncode(uint8_t *dest, unsigned long *destLen, const uint8_t *source, size_t sourceLen, int level)
 {
-	if (level < 0 || level >3)
-	{
-		*destLen = ~0ul;
-		return;
-	}
-
-	auto state = std::make_unique<Encoder>(level, dest, *destLen);
-	 
-	auto header = getHeader();
-	for (auto b : header)
-	{
-		state->stream.WriteU8(b);
-	}
-	 
-	state->AddData(source, source + sourceLen, true);
-	auto adler = adler32x(1, source, sourceLen);
-
-	state->stream.WriteBigEndianU32(adler);
-	state->stream.Flush();
-
-	*destLen = safecast(state->stream.byteswritten());
+	Config cfg =  { 0, level };
+	ZzFlateEncodeThreaded(dest, destLen, source, sourceLen, &cfg);
 }
 
  
@@ -183,41 +164,11 @@ std::vector<uint8_t> zlib ;
 std::vector<uint8_t> gzipHeader = { 0x1f, 0x8b, 8, 0, 0,0,0,0, 0, 0xFF};
 
 
-void GzipEncode(uint8_t *dest, unsigned long *destLen, const uint8_t *source, size_t sourceLen, int level)
+void GzipEncode(uint8_t *dest, unsigned long *destLen, const uint8_t *source, size_t sourceLen, const Config* cfg)
 {
+	auto level = cfg->level;
+
 	if (level < 0 || level >3)
-	{
-		*destLen = ~0ul;
-		return;
-	}
-
-	auto state = std::make_unique<Encoder>(level, dest, *destLen);
-
-	state->stream.WriteU8(0x1f); // ID1
-	state->stream.WriteU8(0x8b); // ID2
-
-	state->stream.WriteU8(0x08); // 8 = Deflate
-	state->stream.WriteU8(0);
-
-	state->stream.WriteU32(0); // time
-
-	state->stream.WriteU8(0);
-	state->stream.WriteU8(255); // OS
-
-	state->AddData(source, source + sourceLen, true);
-	auto crc = crc32(source, sourceLen);
-	state->stream.Flush();
-	// add CRC
-
-	state->stream.WriteU32(crc);
-	state->stream.WriteU32((uint32_t)sourceLen);
-
-}
-
- 
-void GzipEncode(uint8_t *dest, unsigned long *destLen, const uint8_t *source, size_t sourceLen, const Config* config)
-{
-	if (config->level < 0 || config->level > 3)
 	{
 		*destLen = ~0ul;
 		return;
@@ -229,29 +180,20 @@ void GzipEncode(uint8_t *dest, unsigned long *destLen, const uint8_t *source, si
 	{
 		dest[i] = header[i];
 	}
+
 	auto hLen = header.size();
-
-	//auto countSofar = DeflateThreaded(dest + hLen, *destLen - hLen, source, sourceLen, config) + hLen;
-	auto state = std::make_unique<Encoder>(config->level, dest + hLen, *destLen - hLen);
-
-	state->AddData(source, source + sourceLen, true);
-	state->stream.Flush();
-	auto countSofar = state->stream.byteswritten() + hLen;
-
+	 
+	auto countSofar = DeflateThreaded(dest + hLen, *destLen - hLen, source, sourceLen, cfg) + hLen;
+	// add CRC 
 	outputbitstream tempStream(dest + countSofar, safecast(*destLen - countSofar));
-
 	auto crc = crc32(source, sourceLen);
 
-// add CRC
-	
-	tempStream.WriteU32( crc);
+	tempStream.WriteU32(crc);
 	tempStream.WriteU32((uint32_t)sourceLen);
 	tempStream.Flush();
-
-	*destLen = safecast(countSofar + 8);
-
 }
 
+  
 void ZzFlateEncodeThreaded(uint8_t *dest, unsigned long *destLen, const uint8_t *source, size_t sourceLen, const Config* config)
 {
 	auto level = config->level;
