@@ -123,18 +123,10 @@ int testroundtripperf(const std::vector<uint8_t>& bufferUncompressed, bool multi
 	for (int i = 0; i < repeatcount; ++i)
 	{
 		comp_len = safecast(bufferCompressed.size());
+		Config config = { Zlib, compression, multithread };
 
-		if (multithread)
-		{
-			Config config = { 0, compression, true };
-			ZzFlateEncodeThreaded(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), &config);
-		}
-		else
-		{
-			ZzFlateEncode(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), compression);
-
-		}
-
+ 		ZzFlateEncode(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), &config);
+ 
 		if (debugging)
 			return 0;
 
@@ -180,19 +172,20 @@ int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compressio
 	auto testSize = bufferUncompressed.size();
 	auto  compressed = std::vector<uint8_t>();
 
+	Config config = { Zlib, compression, threaded };
+
 	if (threaded && compression == 1)
 	{
 		compressed.resize(bufferUncompressed.size());
 		unsigned long comp_len = safecast(compressed.size());
 
-		Config config = {0, compression, true};
-		ZzFlateEncodeThreaded(&compressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), &config);
+		ZzFlateEncode(&compressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), &config);
 		compressed.resize(comp_len);
 
 	}
 	else
 	{
-		ZzFlateEncode2(&bufferUncompressed[0], bufferUncompressed.size(), compression, [&compressed](auto h)->bool
+		ZzFlateEncode2(&bufferUncompressed[0], bufferUncompressed.size(), &config, [&compressed](auto h)->bool
 		{
 			compressed.insert(compressed.end(), h.buffer, h.buffer + h.bytesStored);
 			return false;
@@ -231,13 +224,11 @@ int testroundtripgzip(const std::vector<uint8_t>& bufferUncompressed, int compre
 	auto testSize = bufferUncompressed.size();
 	auto  compressed = std::vector<uint8_t>();
  
- 
-
 	compressed.resize(bufferUncompressed.size());
 	unsigned long comp_len = safecast(compressed.size());
-	Config config = { 0,compression, false };
+	Config config = { Gzip, compression, false };
 
-	GzipEncode(&compressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), &config);
+	ZzFlateEncode(&compressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), &config);
 
   
 	std::cout << std::fixed;

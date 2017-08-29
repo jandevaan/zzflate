@@ -27,14 +27,13 @@ void StaticInit()
 {
 	Encoder::buildLengthLookup();
 }
+ 
+const unsigned char DEFLATE = 8;
 
+std::vector<uint8_t> gzipHeader = { 0x1f, 0x8b, DEFLATE, 0, 0,0,0,0, 0, 0xFF };
 
-
-const int DEFLATE = 8;
-
-
-std::vector<uint8_t> getHeader()
-{
+std::vector<uint8_t> getHeader( )
+{ 
 	auto h = header{ { DEFLATE, 7 } };
 	auto rem = (h.CMF * 0x100 + h.FLG) % 31;
 	h.fieldsFLG.FCHECK = 31 - rem;
@@ -42,8 +41,34 @@ std::vector<uint8_t> getHeader()
 }
 
 
+std::vector<uint8_t> selectHeader(const Config* config)
+{
+	switch (config->format)
+	{
+	case Zlib: return getHeader();
+	case Gzip: return gzipHeader;
+	case Deflate: return {};
+	}
+}
 
-std::vector<int> partitionRange(size_t total, int count)
+
+int64_t WriteHeader(uint8_t *dest, unsigned long destLen, const Config* config)
+{
+	auto header = selectHeader(config);
+	if (destLen < header.size())
+		return -1; // force error
+
+	for (int i = 0; i < header.size(); i++)
+	{
+		dest[i] = header[i];
+	}
+
+	return header.size();
+}
+
+ 
+
+std::vector<int> divideInRanges(size_t total, int count)
 {
 	auto results = std::vector<int>(count + 1);
 	auto step = (total + count - 1) / count;
@@ -57,7 +82,7 @@ std::vector<int> partitionRange(size_t total, int count)
 }
 
 
-int64_t DeflateThreaded(uint8_t *dest, unsigned long destLen, const uint8_t *source, size_t sourceLen, const Config* config)
+int64_t DeflateImpl(uint8_t *dest, unsigned long destLen, const uint8_t *source, size_t sourceLen, const Config* config)
 {
 	auto level = config->level;
 	if (!config->threaded)
@@ -68,88 +93,52 @@ int64_t DeflateThreaded(uint8_t *dest, unsigned long destLen, const uint8_t *sou
 		state->stream.Flush();
 		return state->stream.byteswritten();
 	}
-	int partitions = std::thread::hardware_concurrency();
+	int taskCount = std::thread::hardware_concurrency();
 
-	auto sourcePartitions = partitionRange(sourceLen, partitions);
-	auto destpartitions = partitionRange(destLen, partitions);
+	auto srcRanges = divideInRanges(sourceLen, taskCount);
+	auto dstRanges = divideInRanges(destLen, taskCount);
 
-	auto doPacket = [level, source, sourcePartitions, dest, destpartitions](int n) -> int64_t
+	auto doPacket = [level, source, srcRanges, dest, dstRanges](int n) -> int64_t
 	{
-		auto encoder = std::make_unique<Encoder>(level, dest + destpartitions[n], safecast(destpartitions[n + 1] - destpartitions[n]));
+		auto encoder = std::make_unique<Encoder>(level, dest + dstRanges[n], safecast(dstRanges[n + 1] - dstRanges[n]));
+		 
+		auto srcStart = source + srcRanges[n];
+		auto srcEnd = source + srcRanges[n + 1];
 
-
-		auto srcStart = sourcePartitions[n];
-		auto srcEnd = sourcePartitions[n + 1];
-
-		encoder->AddData(source + srcStart, source + srcEnd - 1, false);
+		encoder->AddData(srcStart, srcEnd - 1, false);
 
 		//byte align stream by writing 1 byte uncompressed 
 		encoder->SetLevel(0);
-		encoder->AddData(source + srcEnd - 1, source + srcEnd, n == sourcePartitions.size() - 2);
+		encoder->AddData(srcEnd - 1, srcEnd, n == srcRanges.size() - 2);
 
 		encoder->stream.Flush();
 
-		return { encoder->stream.byteswritten() };
+		return encoder->stream.byteswritten();
 	};
 
 	auto futures = std::vector<std::future<int64_t>>();
 
-	for (int n = 1; n < partitions; ++n)
+	for (int n = 1; n < taskCount; ++n)
 	{
 		futures.push_back(std::async(doPacket, n));
 	}
+	
 	auto resultA = doPacket(0);
 
 	auto countSofar = resultA;
-
-
+	 
 	int n = 1;
 	for (auto& f : futures)
 	{
 		auto count = f.get();
-		memmove(dest + countSofar, dest + destpartitions[n], count);
+		memmove(dest + countSofar, dest + dstRanges[n], count);
 		countSofar += count;
 		n++;
 	}
 	return countSofar;
 }
 
-
-
-void ZzFlateEncode(uint8_t *dest, unsigned long *destLen, const uint8_t *source, size_t sourceLen, int level)
-{
-	Config cfg =  { 0, level };
-	ZzFlateEncodeThreaded(dest, destLen, source, sourceLen, &cfg);
-}
-
  
-
-void ZzFlateEncode2(const uint8_t *source, size_t sourceLen, int level, std::function<bool(const bufferHelper&)> callback)
-{
-	if (level < 0 || level >3)
-	{
-		//*destLen = ~0ul;
-		return;
-	}
-
-	auto state = std::make_unique<Encoder>(level);
-
-	auto header = getHeader();
-	for (auto b : header)
-	{
-		state->stream.WriteU8(b);
-	}
-	state->AddData(source, source + sourceLen,  true);
-	auto adler = adler32x(1, source, sourceLen);
-	state->stream.WriteBigEndianU32(adler);
-	state->stream.Flush();
-
-	for (auto& buf : state->stream.buffers)
-	{
-		callback(*buf);
-	}
-	 
-}
 
 int getPos(int totalLength, int n, int divides)
 {
@@ -159,65 +148,85 @@ int getPos(int totalLength, int n, int divides)
 
 }
 
-std::vector<uint8_t> raw;
-std::vector<uint8_t> zlib ;
-std::vector<uint8_t> gzipHeader = { 0x1f, 0x8b, 8, 0, 0,0,0,0, 0, 0xFF};
+ 
 
-
-void GzipEncode(uint8_t *dest, unsigned long *destLen, const uint8_t *source, size_t sourceLen, const Config* cfg)
+int AppendChecksum(const Config* cfg, const uint8_t * source, const size_t &sourceLen, outputbitstream &tempStream)
 {
-	auto level = cfg->level;
-
-	if (level < 0 || level >3)
+	switch (cfg->format)
 	{
-		*destLen = ~0ul;
-		return;
+	case Zlib:
+	{
+		auto adler = adler32x(1, source, sourceLen);
+		tempStream.WriteBigEndianU32(adler);
+		return 4;
+	}
+	case Gzip:
+	{
+		auto crc = crc32(source, sourceLen);
+		tempStream.WriteU32(crc);
+		tempStream.WriteU32((uint32_t)sourceLen);
+		return 8;
+	}
+	case Deflate:
+		return 0;
 	}
 
-	auto header = gzipHeader;
-
-	for (int i = 0; i < header.size(); ++i)
-	{
-		dest[i] = header[i];
-	}
-
-	auto hLen = header.size();
-	 
-	auto countSofar = DeflateThreaded(dest + hLen, *destLen - hLen, source, sourceLen, cfg) + hLen;
-	// add CRC 
-	outputbitstream tempStream(dest + countSofar, safecast(*destLen - countSofar));
-	auto crc = crc32(source, sourceLen);
-
-	tempStream.WriteU32(crc);
-	tempStream.WriteU32((uint32_t)sourceLen);
-	tempStream.Flush();
 }
 
-  
-void ZzFlateEncodeThreaded(uint8_t *dest, unsigned long *destLen, const uint8_t *source, size_t sourceLen, const Config* config)
-{
+
+
+
+bool ZzFlateEncode2(const uint8_t *source, size_t sourceLen, const Config* config, std::function<bool(const bufferHelper&)> callback)
+{  
 	auto level = config->level;
 
 	if (level < 0 || level >3)
+ 		return false;
+ 
+	auto state = std::make_unique<Encoder>(level);
+	 
+	auto header = selectHeader(config);
+	for (auto b : header)
+	{
+		state->stream.WriteU8(b);
+	}
+	state->AddData(source, source + sourceLen, true);
+	
+	AppendChecksum(config, source, sourceLen, state->stream);
+
+	state->stream.Flush();
+
+	for (auto& buf : state->stream.buffers)
+	{
+		callback(*buf);
+	}
+
+}
+
+
+void ZzFlateEncode(uint8_t *dest, unsigned long *destLen, const uint8_t *source, size_t sourceLen, const Config* config)
+{
+	auto level = config->level;
+
+	auto hLen = WriteHeader(dest, *destLen, config);
+	if (level < 0 || level >3 || hLen < 0)
 	{
 		*destLen = ~0ul;
 		return;
 	}
-	auto header = getHeader();
-
-	for (int i = 0; i < header.size(); ++i)
-	{
-		dest[i] = header[i];
-	}
-	int hLen = header.size();
 	 
-	auto countSofar = DeflateThreaded(dest + hLen, *destLen - hLen, source, sourceLen, config) + hLen;
 
-	auto adler = adler32x(1, source, sourceLen);
-
+	auto countSofar = DeflateImpl(dest + hLen, *destLen - hLen, source, sourceLen, config) + hLen;
+	 
 	outputbitstream tempStream(dest + countSofar, safecast(*destLen - countSofar));
-	tempStream.WriteBigEndianU32(adler);
+
+	int len = AppendChecksum(config, source, sourceLen, tempStream);
+	
+	
 	tempStream.Flush();
 
-	*destLen = safecast(countSofar + 4);
+	*destLen = safecast(countSofar + len);
 }
+
+
+ 
