@@ -184,7 +184,7 @@ int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compressio
 	}
 	else
 	{
-		ZzFlateEncode2(&bufferUncompressed[0], bufferUncompressed.size(), &config, [&compressed](auto buffer, auto count)->bool
+		ZzFlateEncodeToCallback(&bufferUncompressed[0], bufferUncompressed.size(), &config, [&compressed](auto buffer, auto count)->bool
 		{
 			compressed.insert(compressed.end(), buffer, buffer + count);
 			return false;

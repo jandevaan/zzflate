@@ -96,13 +96,12 @@ void BroadCastBuffers(outputbitstream& stream, std::function<bool(const uint8_t 
 }
 
 
-int64_t DeflateImpl(uint8_t *dest, unsigned long destLen, const uint8_t *source, size_t sourceLen, const Config* config, std::function<bool(const uint8_t*, int32_t)> callback = nullptr)
+int64_t WriteDeflateStream(uint8_t *dest, unsigned long destLen, const uint8_t *source, size_t sourceLen, const Config* config, std::function<bool(const uint8_t*, int32_t)> callback = nullptr)
 {
 	auto level = config->level;
 	if (!config->threaded)
 	{
 		auto state = std::make_unique<Encoder>(config->level, dest, destLen);
-
 		state->AddData(source, source + sourceLen, true);
 		state->stream.Flush();
 		return state->stream.byteswritten();
@@ -132,34 +131,38 @@ int64_t DeflateImpl(uint8_t *dest, unsigned long destLen, const uint8_t *source,
 
 	auto futures = std::vector<std::future<std::unique_ptr<Encoder>>>();
 
-	for (int n = 1; n < taskCount; ++n)
+	for (int n = 0; n < taskCount; ++n)
 	{
-		futures.push_back(std::async(doPacket, n));
+		futures.push_back(std::async(n== 0 ? std::launch::deferred : std::launch::async, doPacket, n));
 	}
-	
-	auto resultA = doPacket(0);
- 		
-	BroadCastBuffers(resultA->stream, callback); 
-	auto countSofar = resultA->stream.byteswritten();
 	 
-	int n = 1;
-	for (auto& f : futures)
+	 
+	if (dest == nullptr)
 	{
-		auto encoder = f.get();
-		auto& stream = encoder->stream;
-
-		if (dest != nullptr)
+		for (auto& f : futures)
 		{
-			auto count = encoder->stream.byteswritten();
-			memmove(dest + countSofar, dest + dstRanges[n], count);
-			countSofar += count;
+			auto encoder = f.get();
+			BroadCastBuffers(encoder->stream, callback);
 		}
-		
-		BroadCastBuffers(encoder->stream, callback);
- 		
-		n++;
+		return 0;
 	}
-	return countSofar;
+	else
+	{
+		auto countSofar = 0;  
+		int n = 0;
+		for (auto& f : futures)
+		{
+			auto encoder = f.get();
+			auto count = encoder->stream.byteswritten();
+			if (dstRanges[n] != countSofar)
+			{
+				memmove(dest + countSofar, dest + dstRanges[n], count);
+			}
+			countSofar += count;
+			n++;
+		}
+		return countSofar;
+	}
 }
 
  
@@ -200,15 +203,14 @@ int AppendChecksum(const Config* cfg, const uint8_t * source, const size_t &sour
 
 
 
-bool ZzFlateEncode2(const uint8_t *source, size_t sourceLen, const Config* config, std::function<bool(const uint8_t*, int32_t)> callback)
+bool ZzFlateEncodeToCallback(const uint8_t *source, size_t sourceLen, const Config* config, std::function<bool(const uint8_t*, int32_t)> callback)
 {  
 	auto level = config->level;
 
 	if (level < 0 || level >3)
  		return false;
- 
-
-	DeflateImpl(nullptr, 0, source, sourceLen, config);
+  
+	WriteDeflateStream(nullptr, 0, source, sourceLen, config);
 
 	auto state = std::make_unique<Encoder>(level);
 	 
@@ -242,7 +244,7 @@ void ZzFlateEncode(uint8_t *dest, unsigned long *destLen, const uint8_t *source,
 		return;
 	}
 	  
-	auto countSofar = DeflateImpl(dest + hLen, *destLen - hLen, source, sourceLen, config) + hLen;
+	auto countSofar = WriteDeflateStream(dest + hLen, *destLen - hLen, source, sourceLen, config) + hLen;
 	 
 	outputbitstream tempStream(dest + countSofar, safecast(*destLen - countSofar));
 
