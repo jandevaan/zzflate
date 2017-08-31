@@ -39,8 +39,7 @@ private:
 	static const unsigned hashMask = hashSize - 1;
 	static const int maxRecords = 20000;
 	static const int maxDistance = 0x8000;
-
-
+	 
 	static const uint8_t extraLengthBits[286];
 	static const uint8_t extraDistanceBits[30];
 	static const uint8_t order[19];

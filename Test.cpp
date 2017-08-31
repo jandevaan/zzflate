@@ -181,16 +181,14 @@ int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compressio
 
 		ZzFlateEncode(&compressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), &config);
 		compressed.resize(comp_len);
-
 	}
 	else
 	{
-		ZzFlateEncode2(&bufferUncompressed[0], bufferUncompressed.size(), &config, [&compressed](auto h)->bool
+		ZzFlateEncode2(&bufferUncompressed[0], bufferUncompressed.size(), &config, [&compressed](auto buffer, auto count)->bool
 		{
-			compressed.insert(compressed.end(), h.buffer, h.buffer + h.bytesStored);
+			compressed.insert(compressed.end(), buffer, buffer + count);
 			return false;
-		});
-
+		}); 
 	}
 	
 	auto comp_len = compressed.size();

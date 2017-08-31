@@ -34,7 +34,7 @@ std::vector<uint8_t> gzipHeader = { 0x1f, 0x8b, DEFLATE, 0, 0,0,0,0, 0, 0xFF };
 
 std::vector<uint8_t> getHeader( )
 { 
-	auto h = header{ { DEFLATE, 7 } };
+	auto h = header{  DEFLATE, 7 };
 	auto rem = (h.CMF * 0x100 + h.FLG) % 31;
 	h.fieldsFLG.FCHECK = 31 - rem;
 	return { h.CMF, h.FLG };
@@ -82,7 +82,21 @@ std::vector<int> divideInRanges(size_t total, int count)
 }
 
 
-int64_t DeflateImpl(uint8_t *dest, unsigned long destLen, const uint8_t *source, size_t sourceLen, const Config* config)
+
+void BroadCastBuffers(outputbitstream& stream, std::function<bool(const uint8_t *, int32_t)> &callback)
+{
+	if (!callback)
+		return;
+
+	for (int i = 0; i < stream.buffers.size(); i++)
+	{
+		bufferHelper*  h = stream.buffers[i].get();
+		callback(h->buffer, h->bytesStored);
+	}
+}
+
+
+int64_t DeflateImpl(uint8_t *dest, unsigned long destLen, const uint8_t *source, size_t sourceLen, const Config* config, std::function<bool(const uint8_t*, int32_t)> callback = nullptr)
 {
 	auto level = config->level;
 	if (!config->threaded)
@@ -98,7 +112,7 @@ int64_t DeflateImpl(uint8_t *dest, unsigned long destLen, const uint8_t *source,
 	auto srcRanges = divideInRanges(sourceLen, taskCount);
 	auto dstRanges = divideInRanges(destLen, taskCount);
 
-	auto doPacket = [level, source, srcRanges, dest, dstRanges](int n) -> int64_t
+	auto doPacket = [level, source, srcRanges, dest, dstRanges](int n) -> std::unique_ptr<Encoder>
 	{
 		auto encoder = std::make_unique<Encoder>(level, dest + dstRanges[n], safecast(dstRanges[n + 1] - dstRanges[n]));
 		 
@@ -113,10 +127,10 @@ int64_t DeflateImpl(uint8_t *dest, unsigned long destLen, const uint8_t *source,
 
 		encoder->stream.Flush();
 
-		return encoder->stream.byteswritten();
+		return encoder;
 	};
 
-	auto futures = std::vector<std::future<int64_t>>();
+	auto futures = std::vector<std::future<std::unique_ptr<Encoder>>>();
 
 	for (int n = 1; n < taskCount; ++n)
 	{
@@ -124,15 +138,25 @@ int64_t DeflateImpl(uint8_t *dest, unsigned long destLen, const uint8_t *source,
 	}
 	
 	auto resultA = doPacket(0);
-
-	auto countSofar = resultA;
+ 		
+	BroadCastBuffers(resultA->stream, callback); 
+	auto countSofar = resultA->stream.byteswritten();
 	 
 	int n = 1;
 	for (auto& f : futures)
 	{
-		auto count = f.get();
-		memmove(dest + countSofar, dest + dstRanges[n], count);
-		countSofar += count;
+		auto encoder = f.get();
+		auto& stream = encoder->stream;
+
+		if (dest != nullptr)
+		{
+			auto count = encoder->stream.byteswritten();
+			memmove(dest + countSofar, dest + dstRanges[n], count);
+			countSofar += count;
+		}
+		
+		BroadCastBuffers(encoder->stream, callback);
+ 		
 		n++;
 	}
 	return countSofar;
@@ -150,21 +174,21 @@ int getPos(int totalLength, int n, int divides)
 
  
 
-int AppendChecksum(const Config* cfg, const uint8_t * source, const size_t &sourceLen, outputbitstream &tempStream)
+int AppendChecksum(const Config* cfg, const uint8_t * source, const size_t &sourceLen, outputbitstream &stream)
 {
 	switch (cfg->format)
 	{
 	case Zlib:
 	{
 		auto adler = adler32x(1, source, sourceLen);
-		tempStream.WriteBigEndianU32(adler);
+		stream.WriteBigEndianU32(adler);
 		return 4;
 	}
 	case Gzip:
 	{
 		auto crc = crc32(source, sourceLen);
-		tempStream.WriteU32(crc);
-		tempStream.WriteU32((uint32_t)sourceLen);
+		stream.WriteU32(crc);
+		stream.WriteU32((uint32_t)sourceLen);
 		return 8;
 	}
 	case Deflate:
@@ -176,13 +200,16 @@ int AppendChecksum(const Config* cfg, const uint8_t * source, const size_t &sour
 
 
 
-bool ZzFlateEncode2(const uint8_t *source, size_t sourceLen, const Config* config, std::function<bool(const bufferHelper&)> callback)
+bool ZzFlateEncode2(const uint8_t *source, size_t sourceLen, const Config* config, std::function<bool(const uint8_t*, int32_t)> callback)
 {  
 	auto level = config->level;
 
 	if (level < 0 || level >3)
  		return false;
  
+
+	DeflateImpl(nullptr, 0, source, sourceLen, config);
+
 	auto state = std::make_unique<Encoder>(level);
 	 
 	auto header = selectHeader(config);
@@ -198,7 +225,7 @@ bool ZzFlateEncode2(const uint8_t *source, size_t sourceLen, const Config* confi
 
 	for (auto& buf : state->stream.buffers)
 	{
-		callback(*buf);
+		callback(buf->buffer, buf->bytesStored);
 	}
 
 }
@@ -214,8 +241,7 @@ void ZzFlateEncode(uint8_t *dest, unsigned long *destLen, const uint8_t *source,
 		*destLen = ~0ul;
 		return;
 	}
-	 
-
+	  
 	auto countSofar = DeflateImpl(dest + hLen, *destLen - hLen, source, sourceLen, config) + hLen;
 	 
 	outputbitstream tempStream(dest + countSofar, safecast(*destLen - countSofar));
