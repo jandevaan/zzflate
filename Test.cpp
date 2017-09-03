@@ -96,7 +96,7 @@ int ZlibUncompress(uint8_t *dest, size_t *destLen, const uint8_t *source, size_t
 
 	if (err < Z_OK)
 	{
-	//	std::cout << stream.msg << "\r\n";
+		std::cout << stream.msg << "\r\n";
 	}
 
 	inflateEnd(&stream);
@@ -174,9 +174,9 @@ int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compressio
 
 	Config config = { Zlib, compression, threaded };
 
-	if (threaded && compression == 1)
+	if (compression == 1)
 	{
-		compressed.resize(bufferUncompressed.size());
+		compressed.resize(std::max((size_t)200,bufferUncompressed.size()));
 		unsigned long comp_len = safecast(compressed.size());
 
 		ZzFlateEncode(&compressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), &config);
@@ -184,7 +184,7 @@ int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compressio
 	}
 	else
 	{
-		ZzFlateEncodeToCallback(&bufferUncompressed[0], bufferUncompressed.size(), &config, [&compressed](auto buffer, auto count)->bool
+	 	ZzFlateEncodeToCallback(&bufferUncompressed[0], bufferUncompressed.size(), &config, [&compressed](auto buffer, auto count)->bool
 		{
 			compressed.insert(compressed.end(), buffer, buffer + count);
 			return false;
@@ -287,14 +287,14 @@ TEST(ZzGzip, Simple)
 	testroundtripgzip(bufferUncompressed, 1);
 }
 
+TEST(ZzFlate, UserHuffman)
+{
+	testroundtrip(bufferUncompressed, 2);
+}
+
 TEST(ZzFlate, FixedHuffman)
 {  
 	testroundtrip(bufferUncompressed, 1);
-}
-
-TEST(ZzFlate, UserHuffman)
-{ 
-	testroundtrip(bufferUncompressed, 2);
 }
  
 

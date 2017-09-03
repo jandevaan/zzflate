@@ -397,7 +397,7 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 
  inline int Encoder::FirstPass(const uint8_t * source, int byteCount, bool final, std::vector<int>& symbolFreqs, std::vector<int>& distanceFrequencies)
  {
-	 int length = (byteCount < 256000 && final) ? byteCount : std::min(256000, byteCount - 258);
+	 int length = std::min(byteCount, 256000);
 	 comprecords.resize(maxRecords);
 
 	 int backRefEnd = 0;

@@ -80,6 +80,7 @@ public:
 		AppendToBitStream(code.bits, code.length);
 	}
 	 
+	uint8_t* streamStart() { return start; }
 
 	__forceinline void AppendToBitStream(uint64_t bits, int32_t bitCount)
 	{

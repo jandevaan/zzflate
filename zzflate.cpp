@@ -96,18 +96,24 @@ void BroadCastBuffers(outputbitstream& stream, std::function<bool(const uint8_t 
 }
 
 
-int64_t WriteDeflateStream(uint8_t *dest, unsigned long destLen, const uint8_t *source, size_t sourceLen, const Config* config, std::function<bool(const uint8_t*, int32_t)> callback = nullptr)
+int64_t WriteDeflateStream(uint8_t *dest, unsigned long destLen, const uint8_t *source, size_t sourceLen, const Config* config, std::function<void(Encoder*)> callback = nullptr)
 {
 	auto level = config->level;
-	if (!config->threaded)
+	if (!config->threaded || sourceLen < 100 * std::thread::hardware_concurrency())
+	 
 	{
-		auto state = std::make_unique<Encoder>(config->level, dest, destLen);
-		state->AddData(source, source + sourceLen, true);
-		state->stream.Flush();
-		return state->stream.byteswritten();
-	}
-	int taskCount = std::thread::hardware_concurrency();
+		auto encoder = std::make_unique<Encoder>(config->level, dest, destLen);
+		encoder->AddData(source, source + sourceLen, true);
+		encoder->stream.Flush();
+		if (callback != nullptr)
+		{
+			callback(&*encoder);
+		}
 
+		return encoder->stream.byteswritten();
+	}
+	
+	auto taskCount = std::thread::hardware_concurrency();
 	auto srcRanges = divideInRanges(sourceLen, taskCount);
 	auto dstRanges = divideInRanges(destLen, taskCount);
 
@@ -118,14 +124,22 @@ int64_t WriteDeflateStream(uint8_t *dest, unsigned long destLen, const uint8_t *
 		auto srcStart = source + srcRanges[n];
 		auto srcEnd = source + srcRanges[n + 1];
 
-		encoder->AddData(srcStart, srcEnd - 1, false);
+		bool final = n == srcRanges.size() - 2;
+		 
+		/*if (final)		
+		{
+			encoder->AddData(srcStart, srcEnd, final);
+		}
+		else*/
+		{		 
+			encoder->AddData(srcStart, srcEnd - 1, false);
 
-		//byte align stream by writing 1 byte uncompressed 
-		encoder->SetLevel(0);
-		encoder->AddData(srcEnd - 1, srcEnd, n == srcRanges.size() - 2);
-
+			//byte align stream by writing 1 byte uncompressed 
+			encoder->SetLevel(0);
+			encoder->AddData(srcEnd - 1, srcEnd, final);
+		}
 		encoder->stream.Flush();
-
+		std::cout << "Bytes Written: " << encoder->stream.byteswritten() << "\r\n";
 		return encoder;
 	};
 
@@ -135,35 +149,30 @@ int64_t WriteDeflateStream(uint8_t *dest, unsigned long destLen, const uint8_t *
 	{
 		futures.push_back(std::async(n== 0 ? std::launch::deferred : std::launch::async, doPacket, n));
 	}
-	 
-	 
-	if (dest == nullptr)
+	  
+ 	auto countSofar = 0;  
+	int n = 0;
+	for (auto& f : futures)
 	{
-		for (auto& f : futures)
+		auto encoder = f.get();
+		if (callback != nullptr)
 		{
-			auto encoder = f.get();
-			BroadCastBuffers(encoder->stream, callback);
-		}
-		return 0;
-	}
-	else
-	{
-		auto countSofar = 0;  
-		int n = 0;
-		for (auto& f : futures)
+			callback(&*encoder);
+		} 
+
+		if (dest == nullptr)
+			continue;
+
+		auto count = encoder->stream.byteswritten();
+		if (dstRanges[n] != countSofar)
 		{
-			auto encoder = f.get();
-			auto count = encoder->stream.byteswritten();
-			if (dstRanges[n] != countSofar)
-			{
-				memmove(dest + countSofar, dest + dstRanges[n], count);
-			}
-			countSofar += count;
-			n++;
+			memmove(dest + countSofar, dest + dstRanges[n], count);
 		}
-		return countSofar;
+		countSofar += count;
+		n++;
 	}
-}
+	return countSofar;
+ }
 
  
 
@@ -210,26 +219,17 @@ bool ZzFlateEncodeToCallback(const uint8_t *source, size_t sourceLen, const Conf
 	if (level < 0 || level >3)
  		return false;
   
-	WriteDeflateStream(nullptr, 0, source, sourceLen, config);
-
-	auto state = std::make_unique<Encoder>(level);
-	 
 	auto header = selectHeader(config);
-	for (auto b : header)
-	{
-		state->stream.WriteU8(b);
-	}
-	state->AddData(source, source + sourceLen, true);
-	
-	AppendChecksum(config, source, sourceLen, state->stream);
+	callback(&header[0], header.size());
 
-	state->stream.Flush();
+	WriteDeflateStream(nullptr, 0, source, sourceLen, config, [&callback] (auto e) ->  
+		auto { BroadCastBuffers(e->stream, callback); });
 
-	for (auto& buf : state->stream.buffers)
-	{
-		callback(buf->buffer, buf->bytesStored);
-	}
-
+	header.resize(4);
+	outputbitstream tempStream(&header[0], header.size());	 
+  	AppendChecksum(config, source, sourceLen, tempStream);
+	tempStream.Flush();
+	callback(&header[0], tempStream.byteswritten()); 
 }
 
 
@@ -237,23 +237,23 @@ void ZzFlateEncode(uint8_t *dest, unsigned long *destLen, const uint8_t *source,
 {
 	auto level = config->level;
 
-	auto hLen = WriteHeader(dest, *destLen, config);
-	if (level < 0 || level >3 || hLen < 0)
+	int64_t countSoFar = WriteHeader(dest, *destLen, config);
+	if (level < 0 || level >3 || countSoFar < 0)
 	{
 		*destLen = ~0ul;
 		return;
 	}
 	  
-	auto countSofar = WriteDeflateStream(dest + hLen, *destLen - hLen, source, sourceLen, config) + hLen;
+	countSoFar += WriteDeflateStream(dest + countSoFar, *destLen - countSoFar, source, sourceLen, config);
 	 
-	outputbitstream tempStream(dest + countSofar, safecast(*destLen - countSofar));
+	outputbitstream tempStream(dest + countSoFar, safecast(*destLen - countSoFar));
 
-	int len = AppendChecksum(config, source, sourceLen, tempStream);
+	countSoFar += AppendChecksum(config, source, sourceLen, tempStream);
 	
 	
 	tempStream.Flush();
 
-	*destLen = safecast(countSofar + len);
+	*destLen = safecast(countSoFar);
 }
 
 
