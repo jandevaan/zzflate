@@ -7,6 +7,10 @@
 #include "huffman.h" 
 #include "outputbitstream.h"
 
+uint32_t adler32x(uint32_t startValue, const uint8_t *data, size_t len);
+
+uint32_t combine(uint32_t first, uint32_t second, size_t lenSecond);
+
   
 struct lengthRecord
 {
@@ -102,8 +106,10 @@ private:
 	static unsigned int CalcHash(const uint8_t * ptr);	  
 	void FixHashTable(int offset);
 	int WriteBlockFixedHuff(const uint8_t * source, int byteCount, int final);	 
-	int FirstPass(const uint8_t * source, int byteCount, bool final, std::vector<int> &symbolFreqs, std::vector<int> &distanceFrequencies);
-	void AddHashEntries(const uint8_t * source, int i, int extra);	 
+	int FirstPass(const uint8_t * source, int byteCount);
+	int FirstPass2(const uint8_t * source, int byteCount);
+	void GetFrequencies(const uint8_t * source, int length, std::vector<int>& symbolFreqs, std::vector<int>& distanceFrequencies);
+ 	void AddHashEntries(const uint8_t * source, int i, int extra);
 	int WriteUncompressedBlock(const uint8_t* source, int byteCount, int final);
 	int WriteDeflateBlock(const uint8_t * source, int inputLength, bool final);
 };

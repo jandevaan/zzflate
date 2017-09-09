@@ -80,21 +80,7 @@ std::vector<int> divideInRanges(size_t total, int count)
 
 	return results;
 }
-
-
-
-void BroadCastBuffers(outputbitstream& stream, std::function<bool(const uint8_t *, int32_t)> &callback)
-{
-	if (!callback)
-		return;
-
-	for (int i = 0; i < stream.buffers.size(); i++)
-	{
-		bufferHelper*  h = stream.buffers[i].get();
-		callback(h->buffer, h->bytesStored);
-	}
-}
-
+ 
 
 int64_t WriteDeflateStream(uint8_t *dest, unsigned long destLen, const uint8_t *source, size_t sourceLen, const Config* config, std::function<void(Encoder*)> callback = nullptr)
 {
@@ -126,11 +112,11 @@ int64_t WriteDeflateStream(uint8_t *dest, unsigned long destLen, const uint8_t *
 
 		bool final = n == srcRanges.size() - 2;
 		 
-		/*if (final)		
+		if (final)		
 		{
 			encoder->AddData(srcStart, srcEnd, final);
 		}
-		else*/
+		else
 		{		 
 			encoder->AddData(srcStart, srcEnd - 1, false);
 
@@ -139,7 +125,7 @@ int64_t WriteDeflateStream(uint8_t *dest, unsigned long destLen, const uint8_t *
 			encoder->AddData(srcEnd - 1, srcEnd, final);
 		}
 		encoder->stream.Flush();
-		std::cout << "Bytes Written: " << encoder->stream.byteswritten() << "\r\n";
+		//std::cout << "Bytes Written: " << encoder->stream.byteswritten() << "\r\n";
 		return encoder;
 	};
 
@@ -222,8 +208,15 @@ bool ZzFlateEncodeToCallback(const uint8_t *source, size_t sourceLen, const Conf
 	auto header = selectHeader(config);
 	callback(&header[0], header.size());
 
-	WriteDeflateStream(nullptr, 0, source, sourceLen, config, [&callback] (auto e) ->  
-		auto { BroadCastBuffers(e->stream, callback); });
+	WriteDeflateStream(nullptr, 0, source, sourceLen, config, [&callback] (auto e) ->  auto 
+	{ 
+		auto& stream = e->stream;
+		for (int i = 0; i < stream.buffers.size(); i++)
+		{
+			bufferHelper*  h = stream.buffers[i].get();
+			callback(h->buffer, h->bytesStored);
+		}	
+	});
 
 	header.resize(4);
 	outputbitstream tempStream(&header[0], header.size());	 

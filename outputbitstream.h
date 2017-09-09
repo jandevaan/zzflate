@@ -9,9 +9,6 @@
 
 #include "safeint.h" 
 #include "huffman.h"
-uint32_t adler32x(uint32_t startValue, const uint8_t *data, size_t len);
-
-uint32_t combine(uint32_t first, uint32_t second, size_t lenSecond);
 
 struct code
 {  

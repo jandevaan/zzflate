@@ -1,9 +1,12 @@
 #ifndef _ZZFLATE
 #define _ZZFLATE
 
-#include "outputbitstream.h"
 
-  typedef enum Format {Zlib, Gzip, Deflate};
+#include <cstdint>
+ 
+#include <functional>
+  
+typedef enum Format {Zlib, Gzip, Deflate};
 
 struct Config
 {
@@ -11,6 +14,7 @@ struct Config
 	uint8_t level;
 	bool threaded;
 };
+
 
  
 void StaticInit();

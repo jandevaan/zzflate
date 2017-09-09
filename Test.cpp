@@ -13,6 +13,7 @@
 #include <filesystem>
  
 #include "safeint.h"
+#include "encoder.h"
 
 #ifdef NDEBUG
 bool debugging = false;
@@ -167,14 +168,12 @@ int testroundtripperfzlib(const std::vector<uint8_t>& bufferUncompressed, int co
 }
 bool threaded = true;
 
-int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, int compression, std::string name = "")
+int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, Config config, std::string name = "")
 { 
 	auto testSize = bufferUncompressed.size();
 	auto  compressed = std::vector<uint8_t>();
-
-	Config config = { Zlib, compression, threaded };
-
-	if (compression == 1)
+ 
+	if (config.level == 1)
 	{
 		compressed.resize(std::max((size_t)200,bufferUncompressed.size()));
 		unsigned long comp_len = safecast(compressed.size());
@@ -288,13 +287,13 @@ TEST(ZzGzip, Simple)
 }
 
 TEST(ZzFlate, UserHuffman)
-{
-	testroundtrip(bufferUncompressed, 2);
+{ 
+	testroundtrip(bufferUncompressed, {Zlib, 2});
 }
 
 TEST(ZzFlate, FixedHuffman)
 {  
-	testroundtrip(bufferUncompressed, 1);
+	testroundtrip(bufferUncompressed, { Zlib, 1 });
 }
  
 
@@ -304,19 +303,28 @@ TEST(ZzFlate, SmallZerBouffer)
 	for (int i = 1; i <= 512; i = i * 2)
 	{
 		zeroBuffer.resize(i);
-		testroundtrip(zeroBuffer, 2);
+		testroundtrip(zeroBuffer, { Zlib, 2 });
 	}
 }
 
 
 
-TEST(ZzFlate, CanterburyZzflate)
+TEST(ZzFlate, CanterburyZzflate2)
 {
 	for(auto x : directory("c://dev//corpus"))
 	{
-		testroundtrip(ReadFile(x), 2, x);
+		testroundtrip(ReadFile(x), {Zlib, 2}, x);
 	}	
 }
+
+TEST(ZzFlate, CanterburyZzflate3)
+{
+	for (auto x : directory("c://dev//corpus"))
+	{
+		testroundtrip(ReadFile(x), { Zlib, 3 }, x);
+	}
+}
+
 //
 //TEST(ZzFlate, CanterburyNoCompression)
 //{

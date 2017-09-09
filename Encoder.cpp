@@ -277,9 +277,17 @@ void Encoder::buildLengthLookup()
 
  int Encoder::WriteBlock2Pass(const uint8_t * source, int byteCount, bool final)
  {
+	 
+	 int length = (level == 2)
+		 ? FirstPass(source, byteCount)
+		 : FirstPass2(source, byteCount);
+
+	 FixHashTable(length);
+
 	 auto symbolFreqs = std::vector<int>(286, 0);
 	 auto distanceFrequencies = std::vector<int>(30, 0);
-	 int length = FirstPass(source, byteCount, final, symbolFreqs, distanceFrequencies);
+
+	 GetFrequencies(source, length, symbolFreqs, distanceFrequencies);
 
 	 int64_t userBlockBitLength = 0;
 	 std::vector<int> lengthfrequencies(19, 0);
@@ -395,7 +403,106 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 	 return bytesToEncode;
  }
 
- inline int Encoder::FirstPass(const uint8_t * source, int byteCount, bool final, std::vector<int>& symbolFreqs, std::vector<int>& distanceFrequencies)
+ inline int Encoder::FirstPass(const uint8_t * source, int byteCount)
+ {
+	 int length = std::min(byteCount, 256000);
+	 comprecords.resize(maxRecords);
+
+	 int backRefEnd = 0;
+	 int recordCount = 0;
+
+	 for (int j = 1; j < length; ++j)
+	 { 
+		 auto newHash = CalcHash(source + j);
+		 auto distance = j - 1 - (hashtable[newHash]);
+		
+		 if (distance >= maxDistance)
+		 {
+			 hashtable[newHash] = j - 1;
+			 continue;
+		 } 
+
+		 int matchStart = j;
+
+		 auto matchLength = countMatches(source + matchStart, source + matchStart - distance, safecast(byteCount - matchStart));
+
+		 int lengthBackward = countMatchBackward(source + matchStart, source + matchStart - distance, matchStart - backRefEnd);
+
+		 if (lengthBackward > 0)
+		 {
+			 if (distance == 1)
+			 {
+				 lengthBackward = 1;
+			 }
+
+			 matchLength = std::min(matchLength + lengthBackward, 258);
+
+			 matchStart -= lengthBackward;
+
+		 }
+
+		 hashtable[newHash] = j - 1;
+
+		 if (matchLength < 4)
+			 continue;
+
+		 AddHashEntries(source, matchStart, matchLength);
+
+		 comprecords[recordCount++] = { safecast(matchStart - backRefEnd), safecast(distance), safecast(matchLength) };
+
+		 backRefEnd = matchStart + matchLength;
+
+		 if (recordCount == maxRecords - 1)
+		 {
+			 length = backRefEnd;
+			 break;
+		 }
+
+		 j = matchStart + matchLength;
+	 }
+
+	 length = std::max(length, backRefEnd);
+	  
+	 comprecords[recordCount++] = { safecast(length - backRefEnd), 0,0 };
+	 comprecords.resize(recordCount);
+	 
+	 return length;
+ }
+
+ void Encoder::GetFrequencies(const uint8_t * source, int length, std::vector<int> & symbolFreqs, std::vector<int> & distanceFrequencies)
+ {
+
+	 int index = 0;
+	 for (auto r : comprecords)
+	 {
+		 for (unsigned i = 0; i < r.literals; i++)
+		 {
+			 symbolFreqs[source[index + i]]++;
+		 }
+		 index += r.literals;
+
+		 if (r.length == 0)
+			 continue;
+
+		 assert(1 <= r.backoffset && r.backoffset <= 32768);
+		 assert(3 <= r.length && r.length <= 258);
+
+		 for (int i = index; i < index + r.length; i++)
+		 {
+			 assert(source[i] == source[i - r.backoffset]);
+		 }
+		 symbolFreqs[lengthTable[r.length].code]++;
+		 distanceFrequencies[distanceLut[r.backoffset]]++;
+		 index += r.length;
+	 }
+
+	 assert(index == length);
+	 symbolFreqs[256]++;
+
+}
+
+
+ inline int Encoder::FirstPass2(const uint8_t * source, int byteCount)
  {
 	 int length = std::min(byteCount, 256000);
 	 comprecords.resize(maxRecords);
@@ -405,8 +512,6 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 
 	 for (int j = 1; j < length; ++j)
 	 {
-
-
 		 auto newHash = CalcHash(source + j);
 		 auto distance = j - 1 - (hashtable[newHash]);
 		 hashtable[newHash] = j - 1;
@@ -417,7 +522,29 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 		 int matchStart = j;
 
 		 auto matchLength = countMatches(source + matchStart, source + matchStart - distance, safecast(byteCount - matchStart));
+ 		 while (true)
+		 {
+ 			 int altJ = j + matchLength -1;
+			 auto altDistance = altJ - 1 - (hashtable[CalcHash(source + altJ)]);
+			 if (altDistance <=0  || altDistance >= maxDistance)
+			 {
+				 altJ = j + matchLength - 2;
+				 altDistance = altJ - 1 - (hashtable[CalcHash(source + altJ)]);
+			 }
 
+			 if (0 < altDistance && altDistance < maxDistance)
+			 {
+				 auto matchLength2 = countMatches(source + matchStart, source + matchStart - altDistance, safecast(byteCount - matchStart));
+				 if (matchLength2 > matchLength)
+				 {
+					 distance = altDistance;
+					 matchLength = matchLength2;
+					 continue;
+				 }
+			 }
+			 break;
+		 } 
+		
 		 int lengthBackward = countMatchBackward(source + matchStart, source + matchStart - distance, matchStart - backRefEnd);
 
 		 if (lengthBackward > 0)
@@ -452,40 +579,12 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 	 }
 
 	 length = std::max(length, backRefEnd);
-	 FixHashTable(length);
-
 	 comprecords[recordCount++] = { safecast(length - backRefEnd), 0,0 };
 	 comprecords.resize(recordCount);
-	 int index = 0;
-	 for (auto r : comprecords)
-	 {
-		 for (unsigned i = 0; i < r.literals; i++)
-		 {
-			 symbolFreqs[source[index + i]]++;
-		 }
-		 index += r.literals;
-
-		 if (r.length == 0)
-			 continue;
-
-		 assert(1 <= r.backoffset && r.backoffset <= 32768);
-		 assert(3 <= r.length && r.length <= 258);
-
-		 for (int i = index; i < index + r.length; i++)
-		 {
-			 assert(source[i] == source[i - r.backoffset]);
-		 }
-		 symbolFreqs[lengthTable[r.length].code]++;
-		 distanceFrequencies[distanceLut[r.backoffset]]++;
-		 index += r.length;
-	 }
-
-	 assert(index == length);
-	 symbolFreqs[256]++;
 
 	 return length;
-
  }
+
 
  inline void Encoder::AddHashEntries(const uint8_t * source, int i, int extra)
  {
@@ -530,7 +629,7 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 	 {
 		 return WriteBlockFixedHuff(source, inputLength, final);
 	 }
-	 else if (level == 2)
+	 else if (level >= 2)
 	 {
 		 return WriteBlock2Pass(source, inputLength, final);
 	 }
