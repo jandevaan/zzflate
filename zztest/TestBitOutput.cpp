@@ -1,6 +1,6 @@
 
-#include "huffman.h"
-#include "outputbitstream.h"
+#include "../huffman.h"
+#include "../outputbitstream.h"
 #include <gtest/gtest.h>
 
 

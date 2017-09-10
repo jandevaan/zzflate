@@ -6,14 +6,14 @@
 
 #include <zlib.h>
 #include <fstream>
-#include "zzflate.h"
+#include "../zzflate.h"
 #include <chrono>
 
 
 #include <filesystem>
  
 #include "safeint.h"
-#include "encoder.h"
+#include "../encoder.h"
 
 #ifdef NDEBUG
 bool debugging = false;
@@ -213,7 +213,6 @@ int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, Config config,
 
 	return safecast(comp_len);
 }
-
 
 
 int testroundtripgzip(const std::vector<uint8_t>& bufferUncompressed, int compression, std::string name = "")

@@ -3,9 +3,9 @@
 #include <vector>
 #include <cassert> 
 #include <gtest/gtest.h>
-#include "huffman.h"
+#include "../huffman.h"
 #include <numeric>
-#include "encoder.h"
+#include "../encoder.h"
 
 
 TEST(ZzFlate, TestDistanceSearch)

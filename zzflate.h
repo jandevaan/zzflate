@@ -6,7 +6,7 @@
  
 #include <functional>
   
-typedef enum Format {Zlib, Gzip, Deflate};
+enum Format {Zlib, Gzip, Deflate};
 
 struct Config
 {

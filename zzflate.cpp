@@ -1,5 +1,4 @@
 #include <cassert> 
-#include <gtest/gtest.h> 
 #include <memory>
 #include <thread>
 #include <future>
@@ -68,9 +67,9 @@ int64_t WriteHeader(uint8_t *dest, unsigned long destLen, const Config* config)
 
  
 
-std::vector<int> divideInRanges(size_t total, int count)
+std::vector<size_t> divideInRanges(size_t total, int count)
 {
-	auto results = std::vector<int>(count + 1);
+	auto results = std::vector<size_t>(count + 1);
 	auto step = (total + count - 1) / count;
 	for (int i = 1; i < count; ++i)
 	{
@@ -99,7 +98,7 @@ int64_t WriteDeflateStream(uint8_t *dest, unsigned long destLen, const uint8_t *
 		return encoder->stream.byteswritten();
 	}
 	
-	auto taskCount = std::thread::hardware_concurrency();
+	auto taskCount = int(std::thread::hardware_concurrency());
 	auto srcRanges = divideInRanges(sourceLen, taskCount);
 	auto dstRanges = divideInRanges(destLen, taskCount);
 
@@ -136,8 +135,8 @@ int64_t WriteDeflateStream(uint8_t *dest, unsigned long destLen, const uint8_t *
 		futures.push_back(std::async(n== 0 ? std::launch::deferred : std::launch::async, doPacket, n));
 	}
 	  
- 	auto countSofar = 0;  
-	int n = 0;
+	uint64_t countSofar = 0;
+	int32_t n = 0;
 	for (auto& f : futures)
 	{
 		auto encoder = f.get();
