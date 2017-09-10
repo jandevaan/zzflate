@@ -46,7 +46,8 @@ std::vector<uint8_t> selectHeader(const Config* config)
 	{
 	case Zlib: return getHeader();
 	case Gzip: return gzipHeader;
-	case Deflate: return {};
+	case Deflate:
+	default: return {};
 	}
 }
 
@@ -189,6 +190,7 @@ int AppendChecksum(const Config* cfg, const uint8_t * source, const size_t &sour
 		return 8;
 	}
 	case Deflate:
+	default:
 		return 0;
 	}
 
@@ -197,12 +199,12 @@ int AppendChecksum(const Config* cfg, const uint8_t * source, const size_t &sour
 
 
 
-bool ZzFlateEncodeToCallback(const uint8_t *source, size_t sourceLen, const Config* config, std::function<bool(const uint8_t*, int32_t)> callback)
+void ZzFlateEncodeToCallback(const uint8_t *source, size_t sourceLen, const Config* config, std::function<bool(const uint8_t*, int32_t)> callback)
 {  
 	auto level = config->level;
 
 	if (level < 0 || level >3)
- 		return false;
+		return;
   
 	auto header = selectHeader(config);
 	callback(&header[0], header.size());

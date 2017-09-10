@@ -310,7 +310,7 @@ TEST(ZzFlate, SmallZerBouffer)
 
 TEST(ZzFlate, CanterburyZzflate2)
 {
-	for(auto x : directory("c://dev//corpus"))
+	for (auto x : directory("c://dev//zzflate//zztest//corpus"))
 	{
 		testroundtrip(ReadFile(x), {Zlib, 2}, x);
 	}	
@@ -318,7 +318,7 @@ TEST(ZzFlate, CanterburyZzflate2)
 
 TEST(ZzFlate, CanterburyZzflate3)
 {
-	for (auto x : directory("c://dev//corpus"))
+	for (auto x : directory("c://dev//zzflate//zztest//corpus"))
 	{
 		testroundtrip(ReadFile(x), { Zlib, 3 }, x);
 	}
@@ -338,7 +338,7 @@ TEST(ZzFlate, CanterburyZzflate3)
 
 TEST(ZzFlate, CanterburyZlib)
 {
-	for (auto x : directory("c://dev//corpus"))
+	for (auto x : directory("c://dev//zzflate//zztest//corpus"))
 	{
 		testroundtripperfzlib(ReadFile(x), 1, x, 1);
 	}
@@ -347,7 +347,7 @@ TEST(ZzFlate, CanterburyZlib)
 
 TEST(ZzFlate, CanterburyZlib3)
 {
-	for (auto x : directory("c://dev//corpus"))
+	for (auto x : directory("c://dev//zzflate//zztest//corpus"))
 	{
 		testroundtripperfzlib(ReadFile(x), 3, x, 1);
 	}
@@ -355,7 +355,7 @@ TEST(ZzFlate, CanterburyZlib3)
 
 TEST(ZzFlate, CanterburyZlib6)
 {
-	for (auto x : directory("c://dev//corpus"))
+	for (auto x : directory("c://dev//zzflate//zztest//corpus"))
 	{
 		testroundtripperfzlib(ReadFile(x), 6, x, 1);
 	}
