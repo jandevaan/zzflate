@@ -1,6 +1,10 @@
 ﻿#ifndef _ZZGENERIC
 #define _ZZGENERIC
-#include <cstdint>
+#include <stdint.h>
+
+#define ZZINLINE inline
+
+typedef uint64_t compareType;
 
 const uint64_t magic = 0x022fdd63cc95386d; // the 4061955.
 
@@ -22,7 +26,7 @@ unsigned int bitScanForward(uint64_t b) {
 
 
 
-__forceinline int ZeroCount(uint64_t delta)
+ZZINLINE int ZeroCount(uint64_t delta)
 { 
 	return bitScanForward(delta) >> 3; 
 }

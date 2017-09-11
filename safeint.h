@@ -7,7 +7,7 @@ struct safeint
 {
 	safeint(TValue v) { value = v; }
 
-	template <class TDest> __forceinline operator TDest()
+	template <class TDest> ZZINLINE operator TDest()
 	{
 		TDest result = TDest(value);
 #ifdef _DEBUG
@@ -22,6 +22,6 @@ struct safeint
 
 
 template <class TValue>
-__forceinline safeint<TValue> safecast(TValue v) { return safeint<TValue>(v); }
+ZZINLINE safeint<TValue> safecast(TValue v) { return safeint<TValue>(v); }
 
 #endif

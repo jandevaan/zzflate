@@ -2,7 +2,8 @@
 #define _ZZFLATE
 
 
-#include <cstdint>
+#include <stdint.h>
+#include <memory>
  
 #include <functional>
   

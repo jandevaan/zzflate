@@ -1,5 +1,8 @@
 #pragma once
+#include <memory>
 #include <vector>
+#include <string>
+#include <iterator>
 #include "config.h"
 #include "outputbitstream.h"
 
@@ -9,8 +12,6 @@ struct record
 	int frequency;
 	int id;
 };
-
-
 
 struct treeItem
 {

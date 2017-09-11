@@ -1,7 +1,8 @@
 #ifndef _ZZOUTPUTBITSTREAM
 #define _ZZOUTPUTBITSTREAM
 
-#include <cstdint>
+#include <stdint.h>
+#include <string.h>
 #include <cassert>
 #include <functional>
 #include <algorithm>
@@ -68,7 +69,7 @@ public:
 	{				 	
 	}
 
-	__forceinline void AppendToBitStream(code code)
+	ZZINLINE void AppendToBitStream(code code)
 	{
 		if(code.length == 0)
 		{
@@ -79,7 +80,7 @@ public:
 	 
 	uint8_t* streamStart() { return start; }
 
-	__forceinline void AppendToBitStream(uint64_t bits, int32_t bitCount)
+	ZZINLINE void AppendToBitStream(uint64_t bits, int32_t bitCount)
 	{
 		//if(((~0 << bitCount) & bits) != 0)
 		//{

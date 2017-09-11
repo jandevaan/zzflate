@@ -1,4 +1,4 @@
-﻿#include <cstdint>
+﻿#include <stdint.h>
 const int MOD_ADLER = 65521;
 
 

@@ -104,7 +104,7 @@ uint8_t Encoder::distanceLut[32769];
 
 int Encoder::FindDistance(int offset)
 {
-	for (int n = 1; n < std::size(distanceTable); ++n)
+	for (int n = 1; n < 30; ++n)
 	{
 		if (offset < distanceTable[n])
 		{
@@ -187,7 +187,7 @@ void Encoder::buildLengthLookup()
  }
 
 
-   __forceinline int countMatches(const uint8_t* a, const uint8_t* b, int maxLength)
+   ZZINLINE int countMatches(const uint8_t* a, const uint8_t* b, int maxLength)
  {
 
 	 int matchLength = 0;
