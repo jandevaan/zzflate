@@ -1,4 +1,4 @@
-﻿#include <stdint.h>
+﻿#include "config.h"
 const int MOD_ADLER = 65521;
 
 

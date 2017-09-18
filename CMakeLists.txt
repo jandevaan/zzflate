@@ -13,7 +13,7 @@ add_subdirectory("${CMAKE_BINARY_DIR}/googletest-src"
                 "${CMAKE_BINARY_DIR}/googletest-build")
 
 project(libzzflate_project)
-add_library(zzflate STATIC Encoder.cpp huffman.cpp zzflate.cpp)
+add_library(zzflate STATIC Encoder.cpp huffman.cpp zzflate.cpp adler.cpp crc.cpp)
 install(TARGETS zzflate DESTINATION lib)
 install(FILES *.h DESTINATION include)
 
@@ -24,6 +24,6 @@ if (ZLIB_FOUND)
     include_directories(${ZLIB_INCLUDE_DIRS})
     target_link_libraries(zztestx ${ZLIB_LIBRARIES})
 endif()
-target_link_libraries(zztestx libgtest_main)
+target_link_libraries(zztestx zzflate gtest stdc++fs)
 install(TARGETS zztestx DESTINATION bin)
 
