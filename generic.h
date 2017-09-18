@@ -20,7 +20,7 @@ const unsigned int magictable[64] =
 	50, 31, 19, 15, 30, 14, 13, 12,
 };
 
-unsigned int bitScanForward(uint64_t b) {
+ZZINLINE unsigned int bitScanForward(uint64_t b) {
 	return magictable[(uint64_t(b&-int64_t(b))*magic) >> 58];
 }
 

@@ -10,9 +10,8 @@
 #include <chrono>
 
 
-#include <filesystem>
- 
-#include "safeint.h"
+#include <experimental/filesystem>
+  
 #include "../encoder.h"
 
 #ifdef NDEBUG
@@ -116,26 +115,25 @@ int testroundtripperf(const std::vector<uint8_t>& bufferUncompressed, bool multi
 	
 	uLongf comp_len = 0;
 
-	ch::steady_clock::time_point times[11];
+	ch::system_clock::time_point times[11];
 
-	times[0] = ch::high_resolution_clock::now();
+	times[0] = ch::system_clock::now();
  
 
 	for (int i = 0; i < repeatcount; ++i)
 	{
 		comp_len = safecast(bufferCompressed.size());
-		Config config = { Zlib, compression, multithread };
+		Config config = { Zlib, uint8_t(compression), multithread };
 
  		ZzFlateEncode(&bufferCompressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), &config);
  
 		if (debugging)
 			return 0;
 
-		times[i + 1] = ch::high_resolution_clock::now();
+		times[i + 1] = ch::system_clock::now();
 	}
 
 	std::cout << "Reduced "  << testSize << " to " << ((comp_len) * 100.0 / testSize) << "%\r\n";
-
 
 	for(int i = 0; i < repeatcount; ++i)
 	{
@@ -222,7 +220,7 @@ int testroundtripgzip(const std::vector<uint8_t>& bufferUncompressed, int compre
  
 	compressed.resize(bufferUncompressed.size());
 	unsigned long comp_len = safecast(compressed.size());
-	Config config = { Gzip, compression, false };
+	Config config = { Gzip, uint8_t(compression), false };
 
 	ZzFlateEncode(&compressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), &config);
 
