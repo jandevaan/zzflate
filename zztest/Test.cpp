@@ -24,10 +24,11 @@ bool debugging = true;
 namespace fs = std::experimental::filesystem;
 namespace ch = std::chrono;
 
-std::vector<std::string> directory(std::string folder)
+
+std::vector<std::string> enumfiles(std::string folder)
 { 
 	std::vector<std::string> files = {};
-	 
+	  
 	for (fs::directory_entry p : fs::directory_iterator(folder))
 	{ 
 		files.push_back(p.path().string());
@@ -164,7 +165,7 @@ int testroundtripperfzlib(const std::vector<uint8_t>& bufferUncompressed, int co
 
 	return 0;
 }
-bool threaded = true;
+
 
 int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, Config config, std::string name = "")
 { 
@@ -249,6 +250,11 @@ int testroundtripgzip(const std::vector<uint8_t>& bufferUncompressed, int compre
 }
 
 
+namespace
+{
+	std::string prefix = "";
+	std::vector<uint8_t> bufferUncompressed = ReadFile(prefix + "ADInsight.exe");
+}
 
 int main(int ac, char* av[])
 {
@@ -258,10 +264,7 @@ int main(int ac, char* av[])
 	return RUN_ALL_TESTS();
 }
 
-namespace
-{
-	std::vector<uint8_t> bufferUncompressed = ReadFile("c:\\tools\\sysinternals\\adinsight.exe");
-}
+
 
 
 
@@ -303,12 +306,11 @@ TEST(ZzFlate, SmallZerBouffer)
 		testroundtrip(zeroBuffer, { Zlib, 2 });
 	}
 }
-
-
+ 
 
 TEST(ZzFlate, CanterburyZzflate2)
 {
-	for (auto x : directory("c://dev//zzflate//zztest//corpus"))
+	for (auto x : enumfiles(prefix + "corpus"))
 	{
 		testroundtrip(ReadFile(x), {Zlib, 2}, x);
 	}	
@@ -316,7 +318,7 @@ TEST(ZzFlate, CanterburyZzflate2)
 
 TEST(ZzFlate, CanterburyZzflate3)
 {
-	for (auto x : directory("c://dev//zzflate//zztest//corpus"))
+	for (auto x : enumfiles(prefix + "corpus"))
 	{
 		testroundtrip(ReadFile(x), { Zlib, 3 }, x);
 	}
@@ -325,7 +327,7 @@ TEST(ZzFlate, CanterburyZzflate3)
 //
 //TEST(ZzFlate, CanterburyNoCompression)
 //{
-//	for (auto x : directory("c://dev//corpus"))
+//	for (auto x : enumfiles("c://dev//corpus"))
 //	{
 //		testroundtrip(ReadFile(x), 0, x);
 //	}
@@ -334,9 +336,10 @@ TEST(ZzFlate, CanterburyZzflate3)
 
 
 
+
 TEST(ZzFlate, CanterburyZlib)
 {
-	for (auto x : directory("c://dev//zzflate//zztest//corpus"))
+	for (auto x : enumfiles(prefix + "corpus"))
 	{
 		testroundtripperfzlib(ReadFile(x), 1, x, 1);
 	}
@@ -345,7 +348,7 @@ TEST(ZzFlate, CanterburyZlib)
 
 TEST(ZzFlate, CanterburyZlib3)
 {
-	for (auto x : directory("c://dev//zzflate//zztest//corpus"))
+	for (auto x : enumfiles(prefix + "corpus"))
 	{
 		testroundtripperfzlib(ReadFile(x), 3, x, 1);
 	}
@@ -353,7 +356,7 @@ TEST(ZzFlate, CanterburyZlib3)
 
 TEST(ZzFlate, CanterburyZlib6)
 {
-	for (auto x : directory("c://dev//zzflate//zztest//corpus"))
+	for (auto x : enumfiles(prefix + "corpus"))
 	{
 		testroundtripperfzlib(ReadFile(x), 6, x, 1);
 	}
@@ -363,7 +366,7 @@ TEST(ZzFlate, CanterburyZlib6)
 
 TEST(ZzFlate, LargeZlib)
 {
-	for (auto x : directory("c://dev//large"))
+	for (auto x : enumfiles(prefix + "large"))
 	{
 		testroundtripperfzlib(ReadFile(x), 1, x, 1);
 	}
@@ -371,7 +374,7 @@ TEST(ZzFlate, LargeZlib)
 
 TEST(ZzFlate, LargeFiles)
 {
-	for (auto x : directory("c://dev//large"))
+	for (auto x : enumfiles(prefix + "large"))
 	{
 	//	testroundtripperf(ReadFile(x),false, 1, 1);
 	}

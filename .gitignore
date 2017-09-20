@@ -255,3 +255,5 @@ ModelManifest.xml
 
 # FAKE - F# Make
 .fake/
+/zztestx
+/zztestx
