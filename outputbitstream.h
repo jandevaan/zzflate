@@ -89,12 +89,12 @@ public:
 		_bitBuffer |= bits << _usedBitCount;
 		_usedBitCount += bitCount;
 
-		if (_usedBitCount < 32)
+		if (_usedBitCount < 64)
 			return;
 
-		_usedBitCount -= 32;
-		write(uint32_t(_bitBuffer));
-		_bitBuffer = _bitBuffer >> 32;
+		write(_bitBuffer);
+		_usedBitCount -= 64;
+		_bitBuffer = bits >> (bitCount - _usedBitCount);
 	}
 
 	void PadToByte()
@@ -213,7 +213,13 @@ private:
 		*(uint32_t*)stream = val;
 		stream += 4;
 	}
-	 
+
+	void write(uint64_t val)
+	{
+		*(uint64_t*)stream = val;
+		stream += 8;
+	}
+
 	
 };
 
