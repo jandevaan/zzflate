@@ -108,7 +108,7 @@ private:
 	int WriteBlockFixedHuff(const uint8_t * source, int byteCount, int final);	 
 	int FirstPass(const uint8_t * source, int byteCount);
 	int FirstPass2(const uint8_t * source, int byteCount);
-	void GetFrequencies(const uint8_t * source, int length, std::vector<int>& symbolFreqs, std::vector<int>& distanceFrequencies);
+	void GetFrequencies(const uint8_t * source, std::vector<int>& symbolFreqs, std::vector<int>& distanceFrequencies);
  	void AddHashEntries(const uint8_t * source, int i, int extra);
 	int WriteUncompressedBlock(const uint8_t* source, int byteCount, int final);
 	int WriteDeflateBlock(const uint8_t * source, int inputLength, bool final);

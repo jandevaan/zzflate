@@ -21,7 +21,7 @@ std::array<uint32_t, 256> PrepareTable(uint32_t polynominal)
  
 std::array<uint32_t, 256> Crc32Lookup  = PrepareTable(0xEDB88320);
  
-uint32_t crc32(const uint8_t* buffer, int length, uint32_t startValue)
+uint32_t crc32(const uint8_t* buffer, size_t length, uint32_t startValue)
 {
 	auto crc = ~startValue;
 

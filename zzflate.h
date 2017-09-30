@@ -22,7 +22,7 @@ void StaticInit();
  
 void ZzFlateEncode(uint8_t *dest, unsigned long *destLen, const uint8_t *source, size_t sourceLen, const Config* config);
  
-void ZzFlateEncodeToCallback(const uint8_t *source, size_t sourceLen, const Config* config, std::function<bool(const uint8_t*, int32_t)> callback);
+void ZzFlateEncodeToCallback(const uint8_t *source, size_t sourceLen, const Config* config, std::function<bool(const uint8_t*, size_t)> callback);
  
 
 #endif

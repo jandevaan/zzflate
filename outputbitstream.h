@@ -41,8 +41,8 @@ struct bufferHelper
 	int capacity;
 };
 
-
-
+typedef  uint64_t bufferSize;
+ 
 
 struct outputbitstream
 { 
@@ -50,7 +50,7 @@ struct outputbitstream
 private:
 	uint8_t* start = nullptr;
 
-	uint64_t _bitBuffer = 0;
+	bufferSize _bitBuffer = 0;
 	int _usedBitCount = 0;
  	 
 	uint8_t* streamEnd = nullptr;
@@ -61,7 +61,7 @@ public:
  
 	outputbitstream(const outputbitstream& strm) = delete;
  	
-	outputbitstream(uint8_t* stream, int64_t byteCount) :
+	outputbitstream(uint8_t* stream, size_t byteCount) :
 		fixedOutputBuffer(stream != nullptr),
 		start(stream),
 		stream(stream),
@@ -89,11 +89,11 @@ public:
 		_bitBuffer |= bits << _usedBitCount;
 		_usedBitCount += bitCount;
 
-		if (_usedBitCount < 64)
+		if (_usedBitCount < sizeof(bufferSize)*8)
 			return;
 
 		write(_bitBuffer);
-		_usedBitCount -= 64;
+		_usedBitCount -= sizeof(bufferSize) * 8;
 		_bitBuffer = bits >> (bitCount - _usedBitCount);
 	}
 
@@ -159,14 +159,14 @@ public:
 		stream += length;
 	}
 
-	int64_t byteswritten() const
+	size_t byteswritten() const
 	{
 		assert(_usedBitCount == 0);
 		return stream - start;
 	}
 
-	int64_t AvailableBytes() const 	{ return streamEnd - stream; }
-	int64_t BitsWritten() const { return - (_usedBitCount + (  stream - start) * 8);  }
+	size_t AvailableBytes() const 	{ return streamEnd - stream; }
+	uint64_t BitsWritten() const { return - (_usedBitCount + (  stream - start) * 8);  }
 
 	int EnsureOutputLength(int64_t length)
 	{

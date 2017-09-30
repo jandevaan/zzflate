@@ -275,8 +275,7 @@ void Encoder::buildLengthLookup()
  }
 
  int Encoder::WriteBlock2Pass(const uint8_t * source, int byteCount, bool final)
- {
-	 
+ { 
 	 int length = (level == 2)
 		 ? FirstPass(source, byteCount)
 		 : FirstPass2(source, byteCount);
@@ -286,7 +285,7 @@ void Encoder::buildLengthLookup()
 	 auto symbolFreqs = std::vector<int>(286, 0);
 	 auto distanceFrequencies = std::vector<int>(30, 0);
 
-	 GetFrequencies(source, length, symbolFreqs, distanceFrequencies);
+	 GetFrequencies(source, symbolFreqs, distanceFrequencies);
 
 	 int64_t userBlockBitLength = 0;
 	 std::vector<int> lengthfrequencies(19, 0);
@@ -468,7 +467,7 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 	 return length;
  }
 
- void Encoder::GetFrequencies(const uint8_t * source, int length, std::vector<int> & symbolFreqs, std::vector<int> & distanceFrequencies)
+ void Encoder::GetFrequencies(const uint8_t * source,  std::vector<int> & symbolFreqs, std::vector<int> & distanceFrequencies)
  {
 
 	 int index = 0;

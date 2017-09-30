@@ -52,11 +52,11 @@ std::vector<uint8_t> selectHeader(const Config* config)
 }
 
 
-int64_t WriteHeader(uint8_t *dest, unsigned long destLen, const Config* config)
+uint64_t WriteHeader(uint8_t *dest, unsigned long destLen, const Config* config)
 {
 	auto header = selectHeader(config);
 	if (destLen < header.size())
-		return -1; // force error
+		return ~0; // force error
 
 	for (int i = 0; i < header.size(); i++)
 	{
@@ -172,7 +172,7 @@ int getPos(int totalLength, int n, int divides)
 
  
 
-int AppendChecksum(const Config* cfg, const uint8_t * source, const size_t &sourceLen, outputbitstream &stream)
+int AppendChecksum(const Config* cfg, const uint8_t * source, size_t sourceLen, outputbitstream &stream)
 {
 	switch (cfg->format)
 	{
@@ -199,7 +199,7 @@ int AppendChecksum(const Config* cfg, const uint8_t * source, const size_t &sour
 
 
 
-void ZzFlateEncodeToCallback(const uint8_t *source, size_t sourceLen, const Config* config, std::function<bool(const uint8_t*, int32_t)> callback)
+void ZzFlateEncodeToCallback(const uint8_t *source, size_t sourceLen, const Config* config, std::function<bool(const uint8_t*, size_t)> callback)
 {  
 	auto level = config->level;
 
@@ -231,20 +231,16 @@ void ZzFlateEncode(uint8_t *dest, unsigned long *destLen, const uint8_t *source,
 {
 	auto level = config->level;
 
-	int64_t countSoFar = WriteHeader(dest, *destLen, config);
-	if (level < 0 || level >3 || countSoFar < 0)
+	auto countSoFar = WriteHeader(dest, *destLen, config);
+	if (level < 0 || level >3 || ~countSoFar == 0)
 	{
 		*destLen = ~0ul;
 		return;
 	}
 	  
-	countSoFar += WriteDeflateStream(dest + countSoFar, *destLen - countSoFar, source, sourceLen, config);
-	 
-	outputbitstream tempStream(dest + countSoFar, safecast(*destLen - countSoFar));
-
-	countSoFar += AppendChecksum(config, source, sourceLen, tempStream);
-	
-	
+	countSoFar += WriteDeflateStream(dest + countSoFar, *destLen - countSoFar, source, sourceLen, config);	 
+	outputbitstream tempStream(dest + countSoFar, *destLen - countSoFar);
+	countSoFar += AppendChecksum(config, source, sourceLen, tempStream);		
 	tempStream.Flush();
 
 	*destLen = safecast(countSoFar);
