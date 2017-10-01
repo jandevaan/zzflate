@@ -1,6 +1,6 @@
 
-#include "../huffman.h"
-#include "../outputbitstream.h"
+#include "../zzflate/huffman.h"
+#include "../zzflate/outputbitstream.h"
 #include <gtest/gtest.h>
 
 

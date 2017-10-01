@@ -6,13 +6,13 @@
 
 #include <zlib.h>
 #include <fstream>
-#include "../zzflate.h"
+#include "../zzflate/zzflate.h"
 #include <chrono>
 
 
 #include <experimental/filesystem>
   
-#include "../encoder.h"
+#include "../zzflate/encoder.h"
 
 #ifdef NDEBUG
 bool debugging = false;
