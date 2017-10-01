@@ -85,8 +85,7 @@ std::vector<size_t> divideInRanges(size_t total, int count)
 int64_t WriteDeflateStream(uint8_t *dest, unsigned long destLen, const uint8_t *source, size_t sourceLen, const Config* config, std::function<void(Encoder*)> callback = nullptr)
 {
 	auto level = config->level;
-	if (!config->threaded || sourceLen < 100 * std::thread::hardware_concurrency())
-	 
+	if (!config->threaded || sourceLen < 100 * std::thread::hardware_concurrency())	 
 	{
 		auto encoder = std::make_unique<Encoder>(config->level, dest, destLen);
 		encoder->AddData(source, source + sourceLen, true);

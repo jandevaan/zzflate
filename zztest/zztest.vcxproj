@@ -155,7 +155,7 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\ConsoleApplication1.vcxproj">
+    <ProjectReference Include="..\zzflate.vcxproj">
       <Project>{fab4e9fa-53db-4fe4-961c-7e4b75b708f5}</Project>
     </ProjectReference>
   </ItemGroup>

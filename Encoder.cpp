@@ -494,9 +494,7 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 		 index += r.length;
 	 }
 
-	 assert(index == length);
 	 symbolFreqs[256]++;
-
 }
 
 

@@ -41,7 +41,7 @@ struct bufferHelper
 	int capacity;
 };
 
-typedef  uint64_t bufferSize;
+typedef uint64_t bufferSize;
  
 
 struct outputbitstream
