@@ -256,4 +256,8 @@ ModelManifest.xml
 # FAKE - F# Make
 .fake/
 /zztestx
-/zztestx
+/gmock.pc
+/gtest.pc
+/gtest_main.pc
+/gmock_main.pc
+
