@@ -94,8 +94,7 @@ public:
 	 
 	static void CreateMergedLengthCodes(code* lCodes, code* symbolCodes);
 
-private:
-	void Init();	
+private:	
 	void WriteDistance(const code* distCodes, int offset);
 	void StartBlock(CurrentBlockType t, int final);
 	void WriteRecords(const uint8_t* src, const std::vector<compressionRecord>& vector);

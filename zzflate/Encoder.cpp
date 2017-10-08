@@ -1,7 +1,6 @@
 #include <cassert> 
 #include <memory>
 
-
 #include "encoder.h"
 
 #include "zzflate.h"
@@ -412,11 +411,11 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 	 for (int j = 1; j < length; ++j)
 	 { 
 		 auto newHash = CalcHash(source + j);
-		 auto distance = j - 1 - (hashtable[newHash]);
+		 auto distance = j - (hashtable[newHash]);
 		
 		 if (distance >= maxDistance)
 		 {
-			 hashtable[newHash] = j - 1;
+			 hashtable[newHash] = j;
 			 continue;
 		 } 
 
@@ -439,7 +438,7 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 
 		 }
 
-		 hashtable[newHash] = j - 1;
+		 hashtable[newHash] = j;
 
 		 if (matchLength < 4)
 			 continue;
@@ -509,8 +508,8 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 	 for (int j = 1; j < length; ++j)
 	 {
 		 auto newHash = CalcHash(source + j);
-		 auto distance = j - 1 - (hashtable[newHash]);
-		 hashtable[newHash] = j - 1;
+		 auto distance = j - (hashtable[newHash]);
+		 hashtable[newHash] = j;
 
 		 if (distance >= maxDistance)
 			 continue;
@@ -521,11 +520,11 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
  		 while (true)
 		 {
  			 int altJ = j + matchLength -1;
-			 auto altDistance = altJ - 1 - (hashtable[CalcHash(source + altJ)]);
+			 auto altDistance = altJ - (hashtable[CalcHash(source + altJ)]);
 			 if (altDistance <=0  || altDistance >= maxDistance)
 			 {
 				 altJ = j + matchLength - 2;
-				 altDistance = altJ - 1 - (hashtable[CalcHash(source + altJ)]);
+				 altDistance = altJ - (hashtable[CalcHash(source + altJ)]);
 			 }
 
 			 if (0 < altDistance && altDistance < maxDistance)
@@ -584,10 +583,9 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 
  inline void Encoder::AddHashEntries(const uint8_t * source, int i, int extra)
  {
-	 for (int n = i; n < i + extra; ++n)
+	 for (int n = i  + 1; n < i + 1 + extra; ++n)
 	 {
-		 hashtable[CalcHash(source + n + 1)] = n;
-
+		 hashtable[CalcHash(source + n )] = n;
 	 }
  }
 
