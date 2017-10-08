@@ -443,7 +443,7 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 		 if (matchLength < 4)
 			 continue;
 
-		 AddHashEntries(source, matchStart, matchLength);
+		 AddHashEntries(source, matchStart + 1, matchLength);
 
 		 comprecords[recordCount++] = { safecast(matchStart - backRefEnd), safecast(distance), safecast(matchLength) };
 
@@ -558,7 +558,7 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 		 if (matchLength < 4)
 			 continue;
 
-		 AddHashEntries(source, matchStart, matchLength);
+		 AddHashEntries(source, matchStart + 1, matchLength);
 
 		 comprecords[recordCount++] = { safecast(matchStart - backRefEnd), safecast(distance), safecast(matchLength) };
 
@@ -583,7 +583,7 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 
  inline void Encoder::AddHashEntries(const uint8_t * source, int i, int extra)
  {
-	 for (int n = i  + 1; n < i + 1 + extra; ++n)
+	 for (int n = i ; n < i + extra; ++n)
 	 {
 		 hashtable[CalcHash(source + n )] = n;
 	 }
