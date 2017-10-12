@@ -212,12 +212,26 @@ void Encoder::buildLengthLookup()
 	 return maxLength;
  }
 
+
+   int  remain(const uint8_t * a, const uint8_t * b, int matchLength)
+ {
+	 
+	 for (; matchLength < 258; ++matchLength)
+	 {
+		 if (a[matchLength] != b[matchLength])
+			 return matchLength;
+	 }
+
+	 return 258;
+ }
+
  inline int  countMatchBackward(const uint8_t * a, const uint8_t * b, int maxLength)
  {
 	 for (int matchLength = 0; matchLength < maxLength; ++matchLength)
 	 {
-		 if (a[-1 - matchLength] != b[-1 - matchLength])
+ 		 if (a[-1 - matchLength] != b[-1 - matchLength])
 			 return matchLength;
+		  
 	 }
 
 	 return maxLength;
@@ -229,18 +243,27 @@ void Encoder::buildLengthLookup()
 
 	 int matchLength = 0;
 
-	 if (maxLength >= (sizeof(compareType)))
-	 { 
-		 auto delta = *(compareType*)a ^ *(compareType*)b;
+	 
+		auto delta = *(compareType*)a ^ *(compareType*)b;
 
-		 if (delta != 0)
-			 return ZeroCount(delta);
+		if (delta != 0)
+			return ZeroCount(delta);
 
-		 matchLength = sizeof(compareType);
-	 }
-
+		matchLength = sizeof(compareType);
+	 
 	 return remain(a, b, matchLength, int(maxLength));
  }
+
+
+   ZZINLINE int countMatches2(const uint8_t* a, const uint8_t* b)
+   { 
+	   auto delta = *(compareType*)a ^ *(compareType*)b;
+
+	   if (delta != 0)
+		   return ZeroCount(delta);
+	    
+	   return remain(a, b, sizeof(compareType));
+   }
 
  inline code  Merge(code first, code second)
  {
@@ -272,11 +295,12 @@ void Encoder::buildLengthLookup()
 	 stream.AppendToBitStream(t, 2); // fixed huffman table	
  }
 
- void Encoder::WriteRecords(const uint8_t * src, const std::vector<compressionRecord>& vector)
+ void Encoder::WriteRecords(const uint8_t * src)
  {
 	 int offset = 0;
-	 for (auto r : vector)
+	 for (int i = 0; i < validRecords; ++i)
 	 {
+		 auto r = comprecords[i];
 		 for (unsigned n = 0; n < r.literals; ++n)
 		 {
 			 auto value = src[offset + n];
@@ -313,9 +337,23 @@ void Encoder::buildLengthLookup()
 
  int Encoder::WriteBlock2Pass(const uint8_t * source, int byteCount, bool final)
  { 
-	 int length = (level == 2)
-		 ? FirstPass(source, byteCount)
-		 : FirstPass2(source, byteCount);
+	
+
+	 validRecords = 0;
+	 comprecords.resize(maxRecords);
+	  
+	 int targetLength = std::max(byteCount - maxLength, 0);
+
+	 int length = FirstPass(source, targetLength);
+
+
+	 if (length == targetLength &&  validRecords < maxRecords)
+	 { 
+		 comprecords[validRecords++] = { safecast( byteCount - length), 0,0};
+		//memcpy(tempBuffer, source + length - 32768, 32768 + maxLength);	 
+		//int restLength = FirstPass(tempBuffer + 32768, maxLength);
+ 		length += byteCount - length;
+	 }
 
 	 FixHashTable(length);
 
@@ -367,7 +405,7 @@ void Encoder::buildLengthLookup()
 	 // update code tables 
 	 CreateMergedLengthCodes(lcodes, codes);
 
-	 WriteRecords(source, comprecords);
+	 WriteRecords(source);
 
 	 stream.AppendToBitStream(codes[256]);
 
@@ -440,54 +478,56 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 
  inline int Encoder::FirstPass(const uint8_t * source, int byteCount)
  {
-	 int length = std::min(byteCount, 256000);
-	 comprecords.resize(maxRecords);
+	 if (byteCount == 0)
+		 return 0;
 
-	 int backRefEnd = 0;
-	 int recordCount = 0;
+	 int length = std::min(byteCount, 256000);
+	
+	 int backRefEnd = 1;
+	   
+	 auto validRecordsStart = validRecords;
 
 	 for (int j = 1; j < length; ++j)
-	 { 
-		 auto newHash = CalcHash(source + j);
+	 {
+		 auto s = source + j;
+		 auto newHash = CalcHash(s);
 		 auto distance = j - (hashtable[newHash]);
-		
+
 		 if (distance >= maxDistance)
 		 {
 			 hashtable[newHash] = j;
 			 continue;
-		 } 
-
-		 int matchStart = j;
-
-		 auto matchLength = countMatches(source + matchStart, source + matchStart - distance, safecast(byteCount - matchStart));
-
-		 int lengthBackward = countMatchBackward(source + matchStart, source + matchStart - distance, matchStart - backRefEnd);
-
-		 if (lengthBackward > 0)
-		 {
-			 if (distance == 1)
-			 {
-				 lengthBackward = 1;
-			 }
-
-			 matchLength = std::min(matchLength + lengthBackward, 258);
-
-			 matchStart -= lengthBackward;
-
 		 }
 
+		 int matchStart = j;
 		 hashtable[newHash] = j;
+     
+		 auto delta = *(compareType*)s ^ *(compareType*)(s-distance);
+		  
+		 auto matchLength = (delta != 0)
+			 ? ZeroCount(delta)
+			 : remain(s, s - distance, sizeof(compareType));
 
+		 int lengthBackward = countMatchBackward(s, s - distance, matchStart - backRefEnd);
+
+		 matchStart -= lengthBackward;		   
+	     matchLength = matchLength + lengthBackward;
+		 
 		 if (matchLength < 4)
 			 continue;
+ 
+		 if (matchLength > 258)
+		 {
+			 matchLength = 258;
+		 }
 
 		 AddHashEntries(source, matchStart + 1, matchLength);
 
-		 comprecords[recordCount++] = { safecast(matchStart - backRefEnd), safecast(distance), safecast(matchLength) };
+		 comprecords[validRecords++] = { safecast(matchStart - backRefEnd), safecast(distance), safecast(matchLength) };
 
 		 backRefEnd = matchStart + matchLength;
 
-		 if (recordCount == maxRecords - 1)
+		 if (validRecords == maxRecords - 1)
 		 {
 			 length = backRefEnd;
 			 break;
@@ -497,10 +537,9 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 	 }
 
 	 length = std::max(length, backRefEnd);
+	 comprecords[validRecordsStart].literals += 1;
+	 comprecords[validRecords++] = { safecast(length - backRefEnd), 0,0 };
 	  
-	 comprecords[recordCount++] = { safecast(length - backRefEnd), 0,0 };
-	 comprecords.resize(recordCount);
-	 
 	 return length;
  }
 
@@ -508,8 +547,10 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
  {
 
 	 int index = 0;
-	 for (auto r : comprecords)
+	 for (int n = 0; n < validRecords; ++n)
 	 {
+		 auto r = comprecords[n];
+
 		 for (unsigned i = 0; i < r.literals; i++)
 		 {
 			 symbolFreqs[source[index + i]]++;
@@ -533,91 +574,7 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 
 	 symbolFreqs[256]++;
 }
-
-
- inline int Encoder::FirstPass2(const uint8_t * source, int byteCount)
- {
-	 int length = std::min(byteCount, 256000);
-	 comprecords.resize(maxRecords);
-
-	 int backRefEnd = 0;
-	 int recordCount = 0;
-
-	 for (int j = 1; j < length; ++j)
-	 {
-		 auto newHash = CalcHash(source + j);
-		 auto distance = j - (hashtable[newHash]);
-		 hashtable[newHash] = j;
-
-		 if (distance >= maxDistance)
-			 continue;
-
-		 int matchStart = j;
-
-		 auto matchLength = countMatches(source + matchStart, source + matchStart - distance, safecast(byteCount - matchStart));
- 		 while (true)
-		 {
- 			 int altJ = j + matchLength -1;
-			 auto altDistance = altJ - (hashtable[CalcHash(source + altJ)]);
-			 if (altDistance <=0  || altDistance >= maxDistance)
-			 {
-				 altJ = j + matchLength - 2;
-				 altDistance = altJ - (hashtable[CalcHash(source + altJ)]);
-			 }
-
-			 if (0 < altDistance && altDistance < maxDistance)
-			 {
-				 auto matchLength2 = countMatches(source + matchStart, source + matchStart - altDistance, safecast(byteCount - matchStart));
-				 if (matchLength2 > matchLength)
-				 {
-					 distance = altDistance;
-					 matchLength = matchLength2;
-					 continue;
-				 }
-			 }
-			 break;
-		 } 
-		
-		 int lengthBackward = countMatchBackward(source + matchStart, source + matchStart - distance, matchStart - backRefEnd);
-
-		 if (lengthBackward > 0)
-		 {
-			 if (distance == 1)
-			 {
-				 lengthBackward = 1;
-			 }
-
-			 matchLength = std::min(matchLength + lengthBackward, 258);
-
-			 matchStart -= lengthBackward;
-
-		 }
-
-		 if (matchLength < 4)
-			 continue;
-
-		 AddHashEntries(source, matchStart + 1, matchLength);
-
-		 comprecords[recordCount++] = { safecast(matchStart - backRefEnd), safecast(distance), safecast(matchLength) };
-
-		 backRefEnd = matchStart + matchLength;
-
-		 if (recordCount == maxRecords - 1)
-		 {
-			 length = backRefEnd;
-			 break;
-		 }
-
-		 j = matchStart + matchLength;
-	 }
-
-	 length = std::max(length, backRefEnd);
-	 comprecords[recordCount++] = { safecast(length - backRefEnd), 0,0 };
-	 comprecords.resize(recordCount);
-
-	 return length;
- }
-
+ 
 
  inline void Encoder::AddHashEntries(const uint8_t * source, int i, int extra)
  {

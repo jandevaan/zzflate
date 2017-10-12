@@ -43,28 +43,32 @@ private:
 	static const unsigned hashMask = hashSize - 1;
 	static const int maxRecords = 20000;
 	static const int maxDistance = 0x8000;
+	static const int maxLength = 258;
 	 
 	static const uint8_t extraLengthBits[286];
 	static const uint8_t extraDistanceBits[30];
 	static const uint8_t order[19];
 	static const uint16_t distanceTable[30];
 	static uint8_t distanceLut[32769];
-	static lengthRecord  lengthTable[259];
+	static lengthRecord  lengthTable[maxLength + 1];
 
+	
 	// for fixed huffman encoding
 	static code codes_f[286]; // literals
-	static code lcodes_f[259]; // table to send lengths (symbol + extra bits for all 258)
+	static code lcodes_f[maxLength + 1]; // table to send lengths (symbol + extra bits for all 258)
 	static code dcodes_f[30];
 
 
 	
 	// user huffman 
+	int validRecords;
 	std::vector<compressionRecord> comprecords;
 	std::vector<int> lengths = std::vector<int>(286); // temp
 	code codes[286]; // literals
-	code lcodes[259]; // table to send lengths (symbol + extra bits for all 258)
+	code lcodes[maxLength + 1]; // table to send lengths (symbol + extra bits for all 258)
 	code dcodes[30];
-	
+//	uint8_t tempBuffer[32768 + 2 * maxLength + 8];
+
 	
 	// general
 	int level;
@@ -97,7 +101,7 @@ public:
 private:	
 	void WriteDistance(const code* distCodes, int offset);
 	void StartBlock(CurrentBlockType t, int final);
-	void WriteRecords(const uint8_t* src, const std::vector<compressionRecord>& vector);
+	void WriteRecords(const uint8_t* src);
 	std::vector<lenghtRecord> ComputeCodes(const std::vector<int>& frequencies, std::vector<int>& codeLengthFreqs, code* outputCodes);
 	int64_t CountBits(const std::vector<int> & frequencies, const uint8_t * extraBits);
 	int WriteBlock2Pass(const uint8_t * source, int byteCount, bool final);
@@ -105,8 +109,7 @@ private:
 	static unsigned int CalcHash(const uint8_t * ptr);	  
 	void FixHashTable(int offset);
 	int WriteBlockFixedHuff(const uint8_t * source, int byteCount, int final);	 
-	int FirstPass(const uint8_t * source, int byteCount);
-	int FirstPass2(const uint8_t * source, int byteCount);
+	int FirstPass(const uint8_t * source, int byteCount); 
 	void GetFrequencies(const uint8_t * source, std::vector<int>& symbolFreqs, std::vector<int>& distanceFrequencies);
  	void AddHashEntries(const uint8_t * source, int i, int extra);
 	int WriteUncompressedBlock(const uint8_t* source, int byteCount, int final);
