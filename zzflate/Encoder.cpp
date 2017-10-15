@@ -213,9 +213,8 @@ void Encoder::buildLengthLookup()
  }
 
 
-   int  remain(const uint8_t * a, const uint8_t * b, int matchLength)
- {
-	 
+int  remain(const uint8_t * a, const uint8_t * b, int matchLength)
+ { 
 	 for (; matchLength < 258; ++matchLength)
 	 {
 		 if (a[matchLength] != b[matchLength])
@@ -504,9 +503,9 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
      
 		 auto delta = *(compareType*)s ^ *(compareType*)(s-distance);
 		  
-		 auto matchLength = (delta != 0)
-			 ? ZeroCount(delta)
-			 : remain(s, s - distance, sizeof(compareType));
+		 auto matchLength = (delta == 0)
+			 ? remain(s, s - distance, sizeof(compareType))
+			 : ZeroCount(delta);
 
 		 int lengthBackward = countMatchBackward(s, s - distance, matchStart - backRefEnd);
 
@@ -576,7 +575,7 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 }
  
 
- inline void Encoder::AddHashEntries(const uint8_t * source, int i, int extra)
+ void Encoder::AddHashEntries(const uint8_t * source, int i, int extra)
  {
 	 for (int n = i ; n < i + extra; ++n)
 	 {
