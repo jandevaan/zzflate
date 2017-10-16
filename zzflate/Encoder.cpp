@@ -356,7 +356,7 @@ int  remain(const uint8_t * a, const uint8_t * b, int matchLength)
  }
 #else
 
- void Encoder::AuditRecords(const uint8_t * source, int byteCount)
+ void Encoder::AuditRecords(const uint8_t *, int)
  {
  }
 #endif
