@@ -42,6 +42,7 @@ private:
 	static const unsigned hashSize = 1 << hashBits;
 	static const unsigned hashMask = hashSize - 1;
 	static const int maxRecords = 20000;
+	static const int hashBufferLen = 16384;
 	static const int maxDistance = 0x8000;
 	static const int maxLength = 258;
 	 
@@ -68,7 +69,7 @@ private:
 	code lcodes[maxLength + 1]; // table to send lengths (symbol + extra bits for all 258)
 	code dcodes[30];
 //	uint8_t tempBuffer[32768 + 2 * maxLength + 8];
-
+	uint16_t hashcodes[hashBufferLen];
 	
 	// general
 	int level;
@@ -108,12 +109,13 @@ private:
 	int UncompressedFallback(int length, const uint8_t * source, bool final);
 	static unsigned int CalcHash(const uint8_t * ptr);	  
 	void FixHashTable(int offset);
-	int WriteBlockFixedHuff(const uint8_t * source, int byteCount, int final);	 
-	int FirstPass(const uint8_t * source, int byteCount); 
+	int WriteBlockFixedHuff(const uint8_t * source, int byteCount, int final);
+	int FirstPass(const uint8_t * source, int startPos, int byteCount);
 	void GetFrequencies(const uint8_t * source, std::vector<int>& symbolFreqs, std::vector<int>& distanceFrequencies);
  	void AddHashEntries(const uint8_t * source, int i, int extra);
 	int WriteUncompressedBlock(const uint8_t* source, int byteCount, int final);
 	int WriteDeflateBlock(const uint8_t * source, int inputLength, bool final);
+	void AuditRecords(const uint8_t * source, int byteCount);
 };
 
 #endif

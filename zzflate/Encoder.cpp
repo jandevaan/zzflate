@@ -64,7 +64,7 @@ lengthRecord  Encoder::lengthTable[259] = {
 code Encoder::codes_f[286]; // literals
 code Encoder::lcodes_f[259]; // table to send lengths (symbol + extra bits for all 258)
 code Encoder::dcodes_f[30];
-
+const int Encoder::hashBufferLen;
 const uint8_t Encoder::order[19] = { 16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15 };
 
 const uint8_t Encoder::extraDistanceBits[30] = { 0,0,0,0, 1,1,2,2, 3,3,4,4, 5,5,6,6, 7,7,8,8, 9,9,10,10, 11,11,12,12, 13,13 };
@@ -334,6 +334,25 @@ int  remain(const uint8_t * a, const uint8_t * b, int matchLength)
 	 return total;
  }
 
+ void Encoder::AuditRecords(const uint8_t * source, int byteCount)
+ {
+	 int index = 0;
+	 for (int i = 0; i < validRecords; ++i)
+	 {
+		 auto r = comprecords[i];
+
+		 index += r.literals;
+		 if (r.length == 0)
+			 continue;
+
+		 assert(3 <= r.length && r.length <= 258);
+		 assert(1 <= r.backoffset && r.backoffset <= 32768);
+		 assert(memcmp(source + index, source + index - r.backoffset, r.length) == 0);
+		 index += r.length; 
+	 }
+	 assert(index == byteCount);
+ }
+
  int Encoder::WriteBlock2Pass(const uint8_t * source, int byteCount, bool final)
  { 
 	
@@ -342,17 +361,30 @@ int  remain(const uint8_t * a, const uint8_t * b, int matchLength)
 	 comprecords.resize(maxRecords);
 	  
 	 int targetLength = std::max(byteCount - maxLength, 0);
+	 int length = 0;
 
-	 int length = FirstPass(source, targetLength);
+	 while (targetLength > 0 && validRecords < maxRecords)
+	 {
+		 int batchLength = std::min(16384, targetLength);
+		 int bytesAdded = FirstPass(source, length, batchLength);
+		 length += bytesAdded;
+		 targetLength -= bytesAdded;
+	
+		 AuditRecords(source, length);
 
-
-	 if (length == targetLength &&  validRecords < maxRecords)
-	 { 
-		 comprecords[validRecords++] = { safecast( byteCount - length), 0,0};
-		//memcpy(tempBuffer, source + length - 32768, 32768 + maxLength);	 
+ 	 }
+  
+	if (targetLength <= 0 && validRecords < maxRecords)
+	{
+		comprecords[validRecords++] = { safecast(byteCount - length), 0,0 };
+		//memcpy(tempBuffer, source + bytesAdded - 32768, 32768 + maxLength);	 
 		//int restLength = FirstPass(tempBuffer + 32768, maxLength);
- 		length += byteCount - length;
-	 }
+		length += byteCount - length;
+
+		AuditRecords(source, length);
+
+	}
+ 	   
 
 	 FixHashTable(length);
 
@@ -475,18 +507,18 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 	 return bytesToEncode;
  }
 
- inline int Encoder::FirstPass(const uint8_t * source, int byteCount)
+ inline int Encoder::FirstPass(const uint8_t * source, int startPos, int byteCount)
  {
 	 if (byteCount == 0)
 		 return 0;
 
-	 int length = std::min(byteCount, 256000);
-	
-	 int backRefEnd = 1;
-	   
+	 int end = std::min(byteCount , 256000) + startPos;
+
+	 int backRefEnd = startPos + 1;
+
 	 auto validRecordsStart = validRecords;
 
-	 for (int j = 1; j < length; ++j)
+	 for (int j = startPos + 1; j < end; ++j)
 	 {
 		 auto s = source + j;
 		 auto newHash = CalcHash(s);
@@ -528,18 +560,25 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 
 		 if (validRecords == maxRecords - 1)
 		 {
-			 length = backRefEnd;
+			 end = backRefEnd;
 			 break;
 		 }
 
 		 j = matchStart + matchLength;
 	 }
 
-	 length = std::max(length, backRefEnd);
+	 if (backRefEnd <= end) 
+	 { 
+		 comprecords[validRecords++] = { safecast(end - backRefEnd), 0,0 };
+	 }
+	 else
+	 {
+		 end = backRefEnd;
+	 }
+	 
 	 comprecords[validRecordsStart].literals += 1;
-	 comprecords[validRecords++] = { safecast(length - backRefEnd), 0,0 };
-	  
-	 return length;
+
+	 return end - startPos;
  }
 
  void Encoder::GetFrequencies(const uint8_t * source,  std::vector<int> & symbolFreqs, std::vector<int> & distanceFrequencies)
