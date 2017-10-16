@@ -334,6 +334,8 @@ int  remain(const uint8_t * a, const uint8_t * b, int matchLength)
 	 return total;
  }
 
+#ifdef _DEBUG
+
  void Encoder::AuditRecords(const uint8_t * source, int byteCount)
  {
 	 int index = 0;
@@ -348,15 +350,20 @@ int  remain(const uint8_t * a, const uint8_t * b, int matchLength)
 		 assert(3 <= r.length && r.length <= 258);
 		 assert(1 <= r.backoffset && r.backoffset <= 32768);
 		 assert(memcmp(source + index, source + index - r.backoffset, r.length) == 0);
-		 index += r.length; 
+		 index += r.length;
 	 }
 	 assert(index == byteCount);
  }
+#else
+
+ void Encoder::AuditRecords(const uint8_t * source, int byteCount)
+ {
+ }
+#endif
+
 
  int Encoder::WriteBlock2Pass(const uint8_t * source, int byteCount, bool final)
- { 
-	
-
+ {  
 	 validRecords = 0;
 	 comprecords.resize(maxRecords);
 	  
@@ -512,7 +519,7 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 	 if (byteCount == 0)
 		 return 0;
 
-	 int end = std::min(byteCount , 256000) + startPos;
+	 int end = byteCount + startPos;
 
 	 int backRefEnd = startPos + 1;
 
@@ -658,6 +665,11 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 	 }
 	 else if (level >= 2)
 	 {
+		 if (inputLength > 500000)
+		 {
+			 inputLength = 500000;
+			 final = false;
+		 }
 		 return WriteBlock2Pass(source, inputLength, final);
 	 }
 
