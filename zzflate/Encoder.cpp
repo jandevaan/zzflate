@@ -496,7 +496,7 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 		 {
 			 auto matchLength = countMatches(sourcePtr, sourcePtr - distance, safecast(bytesToEncode - i));
 
-			 if (matchLength >= 3)
+			 if (matchLength > 3)
 			 {
 				 stream.AppendToBitStream(lcodes_f[matchLength]);
 				 WriteDistance(dcodes_f, distance);
@@ -524,68 +524,69 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 	 int backRefEnd = startPos + 1;
 
 	 auto validRecordsStart = validRecords;
+	 int j = startPos + 1;
 
-	 for (int j = startPos + 1; j < end; ++j)
+	 while (j < end)
 	 {
 		 auto s = source + j;
 		 auto newHash = CalcHash(s);
-		 auto distance = j - (hashtable[newHash]);
+		 auto distance = j - hashtable[newHash];
+		 hashtable[newHash] = j;
 
 		 if (distance >= maxDistance)
 		 {
-			 hashtable[newHash] = j;
+			 j++;
 			 continue;
 		 }
-
+ 
 		 int matchStart = j;
-		 hashtable[newHash] = j;
-     
+      
 		 auto delta = *(compareType*)s ^ *(compareType*)(s-distance);
 		  
-		 auto matchLength = (delta == 0)
-			 ? remain(s, s - distance, sizeof(compareType))
-			 : ZeroCount(delta);
+		 auto matchLength = (delta != 0)
+			 ? ZeroCount(delta)
+			 : remain(s, s - distance, sizeof(compareType));
 
 		 int lengthBackward = countMatchBackward(s, s - distance, matchStart - backRefEnd);
 
-		 matchStart -= lengthBackward;		   
 	     matchLength = matchLength + lengthBackward;
 		 
 		 if (matchLength < 4)
+		 {
+			 j++;
 			 continue;
- 
+		 }
+
+
+		 matchStart -= lengthBackward;
+
 		 if (matchLength > 258)
 		 {
 			 matchLength = 258;
 		 }
-
+ 
 		 AddHashEntries(source, matchStart + 1, matchLength);
 
 		 comprecords[validRecords++] = { safecast(matchStart - backRefEnd), safecast(distance), safecast(matchLength) };
 
 		 backRefEnd = matchStart + matchLength;
 
-		 if (validRecords == maxRecords - 1)
-		 {
-			 end = backRefEnd;
-			 break;
-		 }
+		 j = backRefEnd + 1;
 
-		 j = matchStart + matchLength;
+		 if (validRecords == maxRecords)
+		 { 
+			 end = 0;
+			 break; 
+		 }	 
 	 }
 
-	 if (backRefEnd <= end) 
-	 { 
-		 comprecords[validRecords++] = { safecast(end - backRefEnd), 0,0 };
-	 }
-	 else
-	 {
-		 end = backRefEnd;
-	 }
-	 
 	 comprecords[validRecordsStart].literals += 1;
 
-	 return end - startPos;
+	 if (backRefEnd > end)
+ 		 return backRefEnd - startPos;
+ 
+	 comprecords[validRecords++] = { safecast(end - backRefEnd), 0,0 };
+ 	 return end - startPos;
  }
 
  void Encoder::GetFrequencies(const uint8_t * source,  std::vector<int> & symbolFreqs, std::vector<int> & distanceFrequencies)
