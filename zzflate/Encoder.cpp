@@ -376,7 +376,7 @@ int  remain(const uint8_t * a, const uint8_t * b, int matchLength)
 		 int bytesAdded = FirstPass(source, length, batchLength);
 		 length += bytesAdded;
 		 targetLength -= bytesAdded;
-	
+
 		 AuditRecords(source, length);
 
  	 }
@@ -494,8 +494,13 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 
 		 if (unsigned(distance) <= maxDistance)
 		 {
-			 auto matchLength = countMatches(sourcePtr, sourcePtr - distance, safecast(bytesToEncode - i));
+			 auto delta = *(compareType*)sourcePtr ^ *(compareType*)(sourcePtr - distance);
 
+			 auto matchLength = (delta != 0)
+				 ? ZeroCount(delta)
+				 : remain(sourcePtr, sourcePtr - distance, sizeof(compareType), safecast(bytesToEncode - i));
+
+			  
 			 if (matchLength > 3)
 			 {
 				 stream.AppendToBitStream(lcodes_f[matchLength]);
@@ -556,8 +561,7 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 			 j++;
 			 continue;
 		 }
-
-
+		  
 		 matchStart -= lengthBackward;
 
 		 if (matchLength > 258)
@@ -572,12 +576,12 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 		 backRefEnd = matchStart + matchLength;
 
 		 j = backRefEnd + 1;
-
+ 
 		 if (validRecords == maxRecords)
-		 { 
+		 {
 			 end = 0;
-			 break; 
-		 }	 
+			 break;
+		 }
 	 }
 
 	 comprecords[validRecordsStart].literals += 1;
