@@ -185,7 +185,7 @@
   <ItemGroup>
     <ClCompile Include="adler.cpp" />
     <ClCompile Include="crc.cpp" />
-    <ClCompile Include="Encoder.cpp" />
+    <ClCompile Include="encoder.cpp" />
     <ClCompile Include="huffman.cpp" />
     <ClCompile Include="zzflate.cpp" />
   </ItemGroup>
