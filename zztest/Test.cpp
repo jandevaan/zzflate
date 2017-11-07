@@ -114,7 +114,7 @@ int testroundtripperf(const std::vector<uint8_t>& bufferUncompressed, bool multi
 
 	bufferCompressed.resize(int(testSize * 1.01));
 	
-	uLongf comp_len = 0;
+	size_t comp_len = 0;
 
 	ch::system_clock::time_point times[11];
 
@@ -175,7 +175,7 @@ int testroundtrip(const std::vector<uint8_t>& bufferUncompressed, Config config,
 	if (config.level == 1)
 	{
 		compressed.resize(std::max((size_t)200,bufferUncompressed.size()));
-		unsigned long comp_len = safecast(compressed.size());
+		size_t comp_len = safecast(compressed.size());
 
 		ZzFlateEncode(&compressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), &config);
 		compressed.resize(comp_len);
@@ -220,7 +220,7 @@ int testroundtripgzip(const std::vector<uint8_t>& bufferUncompressed, int compre
 	auto  compressed = std::vector<uint8_t>();
  
 	compressed.resize(bufferUncompressed.size());
-	unsigned long comp_len = safecast(compressed.size());
+	size_t comp_len = safecast(compressed.size());
 	Config config = { Gzip, uint8_t(compression), false };
 
 	ZzFlateEncode(&compressed[0], &comp_len, &bufferUncompressed[0], bufferUncompressed.size(), &config);

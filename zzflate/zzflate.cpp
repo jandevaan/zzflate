@@ -226,11 +226,11 @@ void ZzFlateEncodeToCallback(const uint8_t *source, size_t sourceLen, const Conf
 }
 
 
-void ZzFlateEncode(uint8_t *dest, unsigned long *destLen, const uint8_t *source, size_t sourceLen, const Config* config)
+void ZzFlateEncode(uint8_t *dest, size_t *destLen, const uint8_t *source, size_t sourceLen, const Config* config)
 {
 	auto level = config->level;
 
-	auto countSoFar = WriteHeader(dest, *destLen, config);
+	auto countSoFar = WriteHeader(dest, safecast(*destLen), config);
 	if (level < 0 || level >3 || ~countSoFar == 0)
 	{
 		*destLen = ~0ul;

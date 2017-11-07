@@ -6,8 +6,10 @@
 
 typedef uint64_t compareType;
 
+// one magic number
 const uint64_t magic = 0x022fdd63cc95386d; // the 4061955.
 
+// 64 more magic numbers
 const unsigned int magictable[64] =
 {
 	0,  1,  2, 53,  3,  7, 54, 27,
@@ -20,6 +22,7 @@ const unsigned int magictable[64] =
 	50, 31, 19, 15, 30, 14, 13, 12,
 };
 
+// waaaat? 
 ZZINLINE unsigned int bitScanForward(uint64_t b) {
 	return magictable[(uint64_t(b&-int64_t(b))*magic) >> 58];
 }

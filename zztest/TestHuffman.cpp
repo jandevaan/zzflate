@@ -1,10 +1,9 @@
 
-
 #include <vector>
 #include <cassert> 
+#include <numeric>
 #include <gtest/gtest.h>
 #include "../zzflate/huffman.h"
-#include <numeric>
 #include "../zzflate/encoder.h"
 
 
@@ -39,7 +38,7 @@ TEST(ZzFlate, GenerateHuffman)
 	std::vector<code> result(lengths.size());
 	
 	huffman::generate<code>(lengths, & result[0]);
-
+	
 	EXPECT_EQ(result[0].bits, huffman::reverse(0b00110000, lengths[0]));
 	EXPECT_EQ(result[143].bits, huffman::reverse(0b10111111, lengths[143]));
 	EXPECT_EQ(result[144].bits, huffman::reverse(0b110010000, lengths[144]));
