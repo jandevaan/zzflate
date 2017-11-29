@@ -13,7 +13,7 @@ TEST(ZzFlate, TestDistanceSearch)
 
 	int failCount = 0;
 
-	for (int distance = 0; distance <= 32768; ++distance)
+	for (int distance = 1; distance <= 32768; ++distance)
 	{
 		int a = Encoder::FindDistance(distance);
 		int b = Encoder::ReadLut(distance);

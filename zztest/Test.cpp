@@ -257,9 +257,7 @@ namespace
 }
 
 int main(int ac, char* av[])
-{
-	StaticInit();
-
+{ 
 	testing::InitGoogleTest(&ac, av);
 	return RUN_ALL_TESTS();
 }

@@ -50,14 +50,14 @@ private:
 	static const uint8_t extraDistanceBits[30];
 	static const uint8_t order[19];
 	static const uint16_t distanceTable[30];
-	static uint8_t distanceLut[32769];
+	static const uint8_t distanceLut[32769];
 	static lengthRecord  lengthTable[maxLength + 1];
 
 	
 	// for fixed huffman encoding
-	static code codes_f[286]; // literals
-	static code lcodes_f[maxLength + 1]; // table to send lengths (symbol + extra bits for all 258)
-	static code dcodes_f[30];
+	static const code codes_f[286]; // literals
+	static const code lcodes_f[maxLength + 1]; // table to send lengths (symbol + extra bits for all 258)
+	static const code dcodes_f[30];
 
 
 	
@@ -90,10 +90,7 @@ public:
 	}
 
 	bool AddDataGzip(const uint8_t* start, const uint8_t* end, uint32_t& adler, bool final);
-
-	static void buildLengthLookup();
-	static void InitFixedHuffman();
-
+ 
 	static int FindDistance(int offset);
 	static int ReadLut(int offset) { return distanceLut[offset]; }
 	 

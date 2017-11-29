@@ -21,11 +21,7 @@ struct header
 	};
 };
 
-
-void StaticInit()
-{
-	Encoder::buildLengthLookup();
-}
+ 
  
 const unsigned char DEFLATE = 8;
 
