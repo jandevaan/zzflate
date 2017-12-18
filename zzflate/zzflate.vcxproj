@@ -186,7 +186,7 @@
   <ItemGroup>
     <ClCompile Include="adler.cpp" />
     <ClCompile Include="crc.cpp" />
-    <ClCompile Include="distancelut.cpp" />
+    <ClCompile Include="luts.cpp" />
     <ClCompile Include="encoder.cpp" />
     <ClCompile Include="fixedhuffmanluts.cpp" />
     <ClCompile Include="huffman.cpp" />
