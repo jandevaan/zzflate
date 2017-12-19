@@ -117,18 +117,7 @@ int  remain(const uint8_t * a, const uint8_t * b, int matchLength)
 	 
 	 return remain(a, b, matchLength, int(maxLength));
  }
-
-
-   ZZINLINE int countMatches2(const uint8_t* a, const uint8_t* b)
-   { 
-	   auto delta = *(compareType*)a ^ *(compareType*)b;
-
-	   if (delta != 0)
-		   return ZeroCount(delta);
-	    
-	   return remain(a, b, sizeof(compareType));
-   }
-
+    
  inline code  Merge(code first, code second)
  {
 	 return code(first.length + second.length, second.bits << first.length | first.bits);
@@ -236,10 +225,10 @@ int  remain(const uint8_t * a, const uint8_t * b, int matchLength)
 	 while (targetLength > 0 && validRecords < maxRecords)
 	 {
 		 int batchLength = std::min(16384, targetLength);
-		 int bytesAdded = FirstPass(source, length, batchLength);
-		 length += bytesAdded;
-		 targetLength -= bytesAdded;
-
+		 int newEnd = FirstPass(source, length, length + batchLength);
+		 targetLength -= newEnd - length;
+		 length = newEnd;
+		
 		 AuditRecords(source, length);
 
  	 }
@@ -348,9 +337,10 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 	 }
 	 StartBlock(FixedHuffman, final);
 
+	 auto sourcePtr = source -1;
 	 for (int i = 0; i < bytesToEncode; ++i)
 	 {
-		 auto sourcePtr = source + i;
+		 sourcePtr++;
 		 auto newHash = CalcHash(sourcePtr + 1);
 		 auto distance = i - hashtable[newHash];
 		 hashtable[newHash] = i;
@@ -362,14 +352,14 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 			 auto matchLength = (delta != 0)
 				 ? ZeroCount(delta)
 				 : remain(sourcePtr, sourcePtr - distance, sizeof(compareType), safecast(bytesToEncode - i));
-
-			  
+ 
 			 if (matchLength > 3)
 			 {
 				 stream.AppendToBitStream(lcodes_f[matchLength]);
 				 WriteDistance(dcodes_f, distance);
 
 				 i += matchLength - 1;
+				 sourcePtr += matchLength - 1;
 				 continue;
 			 }
 		 }
@@ -382,13 +372,11 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 	 return bytesToEncode;
  }
 
- inline int Encoder::FirstPass(const uint8_t * source, int startPos, int byteCount)
+ int Encoder::FirstPass(const uint8_t * source, int startPos, int end)
  {
-	 if (byteCount == 0)
-		 return 0;
-
-	 int end = byteCount + startPos;
-
+	 if (startPos  == end)
+		 return startPos;
+ 
 	 int backRefEnd = startPos + 1;
 
 	 auto validRecordsStart = validRecords;
@@ -406,33 +394,27 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 			 j++;
 			 continue;
 		 }
- 
-		
-		 int lengthBackward = countMatchBackward(s, s - distance, j - backRefEnd);
+   	 
 		 
 		 auto delta = *(compareType*)s ^ *(compareType*)(s - distance);
-		 int matchLength = lengthBackward;
+		 int matchLength = delta != 0
+			 ? ZeroCount(delta)
+			 : remain(s, s - distance, sizeof(compareType));
 
+		 int lengthBackward = countMatchBackward(s, s - distance, j - backRefEnd);
+
+		 matchLength += lengthBackward;
+		 if (matchLength < 4)
+		 {
+			 j++;
+			 continue;
+		 }
+		 if (matchLength > 258)
+		 {
+			 matchLength = 258;
+		 }
 		 int matchStart = j - lengthBackward;
 
-		 if (delta != 0)
-		 {
-			 matchLength += ZeroCount(delta);
-			 if (matchLength < 4)
-			 {
-				 j++; 
-				 continue;
-			 }
-		 }
-		 else
-		 {
-			 matchLength += remain(s, s - distance, sizeof(compareType));
-			 if (matchLength > 258)
-			 {
-				 matchLength = 258;
-			 }
-		 }
-		  
 		 AddHashEntries(source, matchStart + 1, matchLength);
 
 		 comprecords[validRecords++] = { safecast(matchStart - backRefEnd), safecast(distance), safecast(matchLength) };
@@ -451,10 +433,10 @@ int Encoder::UncompressedFallback(int length, const uint8_t * source, bool final
 	 comprecords[validRecordsStart].literals += 1;
 
 	 if (backRefEnd > end)
- 		 return backRefEnd - startPos;
+ 		 return backRefEnd;
  
 	 comprecords[validRecords++] = { safecast(end - backRefEnd), 0,0 };
- 	 return end - startPos;
+ 	 return end;
  }
 
  void Encoder::GetFrequencies(const uint8_t * source,  std::vector<int> & symbolFreqs, std::vector<int> & distanceFrequencies)

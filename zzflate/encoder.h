@@ -107,7 +107,7 @@ private:
 	static unsigned int CalcHash(const uint8_t * ptr);	  
 	void FixHashTable(int offset);
 	int WriteBlockFixedHuff(const uint8_t * source, int byteCount, int final);
-	int FirstPass(const uint8_t * source, int startPos, int byteCount);
+	int FirstPass(const uint8_t * source, int startPos, int endPos);
 	void GetFrequencies(const uint8_t * source, std::vector<int>& symbolFreqs, std::vector<int>& distanceFrequencies);
  	void AddHashEntries(const uint8_t * source, int i, int extra);
 	int WriteUncompressedBlock(const uint8_t* source, int byteCount, int final);
