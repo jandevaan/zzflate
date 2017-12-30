@@ -14,7 +14,7 @@ add_subdirectory("${CMAKE_BINARY_DIR}/googletest-src"
                 "${CMAKE_BINARY_DIR}/googletest-build")
 
 project(libzzflate_project)
-add_library(zzflate STATIC zzflate/zzflate.cpp zzflate/encoder.cpp zzflate/crc.cpp zzflate/adler.cpp zzflate/huffman.cpp)
+add_library(zzflate STATIC zzflate/zzflate.cpp zzflate/luts.cpp zzflate/fixedhuffmanluts.cpp zzflate/encoder.cpp zzflate/crc.cpp zzflate/adler.cpp zzflate/huffman.cpp)
 install(TARGETS zzflate DESTINATION lib)
 install(FILES zzflate/*.h DESTINATION include)
 
