@@ -21,7 +21,7 @@ bool debugging = true;
 
 namespace ch = std::chrono;
 
-#if 0
+#if _MSC_VER && !__INTEL_COMPILER
 
 #include <experimental/filesystem>
 namespace fs = std::experimental::filesystem;
