@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define ZZINLINE __attribute__((always_inline))
+#define ZZINLINE inline __attribute__((always_inline))
 
 typedef uint64_t compareType;
 
