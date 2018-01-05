@@ -14,17 +14,18 @@ add_subdirectory("${CMAKE_BINARY_DIR}/googletest-src"
                 "${CMAKE_BINARY_DIR}/googletest-build")
 
 project(libzzflate_project)
-add_library(zzflate STATIC zzflate/zzflate.cpp zzflate/luts.cpp zzflate/fixedhuffmanluts.cpp zzflate/encoder.cpp zzflate/crc.cpp zzflate/adler.cpp zzflate/huffman.cpp)
+
+add_library(zzflate STATIC zzflate/zzflate.cpp zzflate/encoder.cpp zzflate/crc.cpp zzflate/adler.cpp zzflate/huffman.cpp zzflate/luts.cpp zzflate/fixedhuffmanluts.cpp )
 install(TARGETS zzflate DESTINATION lib)
 install(FILES zzflate/*.h DESTINATION include)
 
 project(zztest)
-add_executable(zztestx zztest/Test.cpp zztest/TestBitOutput.cpp)
+add_executable(zztestx  zztest/Test.cpp zztest/TestBitOutput.cpp)
 find_package(ZLIB)
 if (ZLIB_FOUND)
     include_directories(${ZLIB_INCLUDE_DIRS})
     target_link_libraries(zztestx ${ZLIB_LIBRARIES})
 endif()
-target_link_libraries(zztestx zzflate gtest stdc++fs)
+target_link_libraries(zztestx zzflate gtest )
 install(TARGETS zztestx DESTINATION bin)
 

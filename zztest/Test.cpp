@@ -10,7 +10,6 @@
 #include <chrono>
 
 
-#include <experimental/filesystem>
   
 #include "../zzflate/encoder.h"
 
@@ -20,11 +19,12 @@ bool debugging = false;
 bool debugging = true;
 #endif
 
-
-namespace fs = std::experimental::filesystem;
 namespace ch = std::chrono;
 
+#if _MSC_VER && !__INTEL_COMPILER
 
+#include <experimental/filesystem>
+namespace fs = std::experimental::filesystem;
 std::vector<std::string> enumfiles(std::string folder)
 { 
 	std::vector<std::string> files = {};
@@ -35,7 +35,39 @@ std::vector<std::string> enumfiles(std::string folder)
  	}
 	return files;
 }
+#else
 
+#include <dirent.h>
+std::vector<std::string> enumfiles(std::string folder)
+{
+    std::vector<std::string> files_ = {};
+ 
+    DIR* dp = opendir (folder.c_str());
+    
+    if (dp != NULL)
+    {
+        struct dirent *ep = nullptr;
+        
+        while ((ep = readdir (dp)) != nullptr)
+        {
+            if (ep->d_name[0] == '.')
+                continue;
+            
+            files_.push_back(folder + "/" + ep->d_name);
+            std::cerr << files_[files_.size() -1];
+        }
+         
+        closedir (dp);
+    }
+    else {
+        std::cerr << ("Couldn't open the directory");
+       
+    }
+
+        return files_;
+}
+
+#endif
 std::vector<uint8_t> ReadFile(std::string name)
 {
 	std::ifstream file;
