@@ -2,7 +2,7 @@
 #define _ZZGCC
 #include <stdint.h>
 
-#define ZZINLINE inline
+#define ZZINLINE __attribute__((always_inline)) inline
 
 typedef uint64_t compareType;
 
